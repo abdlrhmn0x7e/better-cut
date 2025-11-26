@@ -11,14 +11,24 @@
 	const previewAction: Action<HTMLDivElement> = (node) => {
 		ctx.comp = new Composition({ container: node });
 	};
+
+	function handlePreviewResize() {
+		if (!ctx.comp) return;
+
+		ctx.comp.rescale();
+	}
 </script>
 
 <main class="h-screen flex flex-col">
 	<Toolbar />
 
-	<Resizable.PaneGroup direction="vertical" class="rounded-lg border">
+	<Resizable.PaneGroup
+		direction="vertical"
+		class="rounded-lg border"
+		onLayoutChange={handlePreviewResize}
+	>
 		<Resizable.Pane defaultSize={50}>
-			<Resizable.PaneGroup direction="horizontal">
+			<Resizable.PaneGroup direction="horizontal" onLayoutChange={handlePreviewResize}>
 				<Resizable.Pane defaultSize={45}>
 					<div class="flex h-full items-center justify-center p-3">
 						<ProjectPanel />

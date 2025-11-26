@@ -20,10 +20,13 @@
 	}
 </script>
 
-<div class={cn("flex flex-col gap-2 size-full items-center", classNames)} {...props}>
-	<div use:action class="flex-1 size-fit"></div>
+<div class={cn("relative size-full", classNames)} {...props}>
+	<div
+		use:action
+		class="flex-1 size-full flex items-center justify-center [&_.konvajs-content]:bg-muted"
+	></div>
 
-	<div class="p-4 flex items-center justify-center">
+	<div class="shrink-0 border rounded-lg p-2 bg-card absolute bottom-4 inset-x-4">
 		<Button onclick={handlePlay}>
 			<PlayIcon />
 			Play
