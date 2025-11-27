@@ -1,4 +1,3 @@
-import { getContext, setContext } from "svelte";
 import { createVideoLayer } from "../layers/video";
 import type { Layer, LayerOptions } from "./layers";
 
@@ -17,8 +16,8 @@ export interface CompositionOptions {
 export class Composition {
 	public playing: boolean;
 	public currentTime: number;
-	public layers: Array<Layer>;
 	public aspectRatio: number;
+	public layers: Array<Layer>;
 
 	private _stage: Konva.Stage;
 
@@ -67,8 +66,6 @@ export class Composition {
 
 		const scaledByWidth = width / this.aspectRatio <= height;
 
-		console.log("w before", width, "h before", height);
-
 		if (scaledByWidth) {
 			height = width / this.aspectRatio;
 			width = height * this.aspectRatio;
@@ -77,25 +74,9 @@ export class Composition {
 			height = width / this.aspectRatio;
 		}
 
-		console.log("w after", width, "h after", height);
-
 		this._stage.size({
 			width,
 			height
 		});
 	}
 }
-
-const DEFAULT_KEY = "$_composition";
-
-export const getCompisitionState = (key = DEFAULT_KEY) => {
-	return getContext<{ comp: Composition | null }>(key);
-};
-
-let comp: Composition | null = $state(null);
-
-export const setCompisitionState = (options?: CompositionOptions, key = DEFAULT_KEY) => {
-	if (options) comp = new Composition(options);
-
-	return setContext(key, { comp });
-};

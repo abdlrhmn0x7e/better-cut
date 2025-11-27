@@ -12,7 +12,7 @@
 			{/snippet}
 		</DropdownMenu.Trigger>
 
-		<DropdownMenu.Content align="start">
+		<DropdownMenu.Content align="start" class="min-w-48">
 			<DropdownMenu.Item class="w-full">
 				{#snippet child({ props })}
 					<ImportVideo {...props} />

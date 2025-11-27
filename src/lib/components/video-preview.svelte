@@ -2,9 +2,9 @@
 	import { cn } from "$lib/utils";
 	import type { HTMLAttributes } from "svelte/elements";
 	import Button from "./ui/button/button.svelte";
-	import { getCompisitionState } from "$lib/editor/composition/composition.svelte";
-	import { PlayIcon } from "@lucide/svelte";
+	import { PauseIcon, PlayIcon } from "@lucide/svelte";
 	import type { Action } from "svelte/action";
+	import { getEditorState } from "$lib/editor/context.svelte";
 
 	let {
 		action,
@@ -12,11 +12,15 @@
 		...props
 	}: { action: Action<HTMLDivElement> } & HTMLAttributes<HTMLDivElement> = $props();
 
-	const ctx = getCompisitionState();
+	const ctx = getEditorState();
 
 	function handlePlay() {
 		if (!ctx.comp) throw new Error("No initialized composition");
 		ctx.comp.render();
+	}
+
+	function handlePause() {
+		if (!ctx.comp) throw new Error("No initialized composition");
 	}
 </script>
 
@@ -30,6 +34,11 @@
 		<Button onclick={handlePlay}>
 			<PlayIcon />
 			Play
+		</Button>
+
+		<Button onclick={handlePause}>
+			<PauseIcon />
+			Pause
 		</Button>
 	</div>
 </div>

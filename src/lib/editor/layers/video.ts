@@ -1,5 +1,5 @@
 import { createId } from "@paralleldrive/cuid2";
-import type { BaseLayer } from ".";
+import type { BaseLayer } from "./base.ts";
 import Konva from "konva";
 
 interface VideoSource {
@@ -57,13 +57,22 @@ export async function createVideoLayer({ src, order }: VideoLayerOptions) {
 	const source = await loadVideo(src);
 
 	const video = new Konva.Image({
-		image: source.element
+		image: source.element,
+		width: source.width,
+		height: source.height,
+		draggable: true
 	});
 	video.width(source.width);
 	video.height(source.height);
 
+	const trans = new Konva.Transformer({
+		nodes: [video],
+		keepRatio: true,
+		enabledAnchors: ["top-left", "top-right", "bottom-left", "bottom-right"]
+	});
+
 	const layer = new Konva.Layer();
-	layer.add(video);
+	layer.add(video, trans);
 
 	const anim = new Konva.Animation(() => {}, layer);
 

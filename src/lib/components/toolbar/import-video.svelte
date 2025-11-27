@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { getCompisitionState } from "$lib/editor/composition/composition.svelte";
+	import { getEditorState } from "$lib/editor/context.svelte";
 	import { FilePlusIcon } from "@lucide/svelte";
 	import type { WithElementRef } from "bits-ui";
 	import { onMount } from "svelte";
@@ -10,22 +10,20 @@
 
 	let videoInput: HTMLInputElement;
 
-	const ctx = getCompisitionState();
+	const ctx = getEditorState();
 
 	const handleVideoInput = (e: Event) => {
-		if (!ctx.comp) throw new Error("There's no initialized comp");
-
 		const target = e.target as HTMLInputElement;
-		const file = target.files?.[0];
-		if (!file) throw new Error("You must provide 1 file atleast");
+		const files = target.files;
+		if (!files || files?.length === 0) throw new Error("You must provide 1 file atleast");
 
-		ctx.comp.addLayer({
-			type: "video",
-			options: {
-				order: 1,
-				src: file
-			}
-		});
+		// add files to a global state
+
+		// Why doesn't this work?
+		// ctx.files = [...ctx.files, ...Array.from(files)];
+		// ctx.files.concat(Array.from(files));
+
+		Array.from(files).forEach((file) => ctx.files.push(file));
 	};
 
 	const handleImport: MouseEventHandler<HTMLButtonElement> = (e) => {
@@ -38,7 +36,7 @@
 	});
 </script>
 
-<input bind:this={videoInput} type="file" accept="video/*" hidden />
+<input bind:this={videoInput} type="file" accept="video/*, audio/*, image/*" multiple hidden />
 
 <button onclick={handleImport} {...props}>
 	<FilePlusIcon />

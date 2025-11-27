@@ -1,8 +1,2 @@
-export interface BaseLayer {
-	id: string;
-
-	startTime: number;
-	duration: number;
-
-	order: number;
-}
+export * from "./base.ts";
+export * from "./video.ts";
