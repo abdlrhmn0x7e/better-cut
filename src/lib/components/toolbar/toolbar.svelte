@@ -6,14 +6,23 @@
 
 <div class="w-full sm:flex flex-wrap hidden px-2 py-1">
 	<DropdownMenu.Root>
-		<DropdownMenu.Trigger>
-			{#snippet child({ props })}
-				<Button {...props} variant="ghost" size="sm">File</Button>
-			{/snippet}
-		</DropdownMenu.Trigger>
+		<div class="flex gap-3 items-center">
+			<p class="text-sm font-medium">Better <span class="text-blue-300">Cut</span></p>
+
+			<DropdownMenu.Trigger>
+				{#snippet child({ props })}
+					<Button
+						{...props}
+						variant="ghost"
+						class="cursor-pointer data-[state=open]:bg-accent"
+						size="xs">File</Button
+					>
+				{/snippet}
+			</DropdownMenu.Trigger>
+		</div>
 
 		<DropdownMenu.Content align="start" class="min-w-48">
-			<DropdownMenu.Item class="w-full">
+			<DropdownMenu.Item class="w-full h-7">
 				{#snippet child({ props })}
 					<ImportVideo {...props} />
 				{/snippet}

@@ -1,12 +1,15 @@
 <script lang="ts">
-	import { ProjectFiles } from "$lib/components/project-files";
-	import { Toolbar } from "$lib/components/toolbar";
-	import * as Resizable from "$lib/components/ui/resizable/index.js";
-	import VideoPreview from "$lib/components/video-preview.svelte";
 	import type { Action } from "svelte/action";
 
-	import { setEditorState } from "$lib/editor/context.svelte";
 	import { Composition } from "$lib/editor/composition";
+	import { setEditorState } from "$lib/editor/context.svelte";
+
+	import { Toolbar } from "$lib/components/toolbar";
+	import { Card, CardContent } from "$lib/components/ui/card";
+	import * as Resizable from "$lib/components/ui/resizable/index.js";
+
+	import VideoPreview from "$lib/components/video-preview.svelte";
+	import ProjectPanel from "$lib/components/project-panel/panel.svelte";
 	import Timeline from "$lib/components/timeline/timeline.svelte";
 
 	const ctx = setEditorState();
@@ -34,21 +37,23 @@
 		onLayoutChange={handlePreviewResize}
 	>
 		<Resizable.Pane defaultSize={50}>
-			<Resizable.PaneGroup direction="horizontal" onLayoutChange={handlePreviewResize}>
-				<Resizable.Pane defaultSize={30}>
-					<ProjectFiles />
+			<Resizable.PaneGroup class="p-2" direction="horizontal" onLayoutChange={handlePreviewResize}>
+				<Resizable.Pane class="pr-4" defaultSize={30}>
+					<ProjectPanel />
 				</Resizable.Pane>
 
-				<Resizable.Handle />
+				<Resizable.Handle withHandle class="bg-transparent" />
 
 				<Resizable.Pane defaultSize={50}>
 					<VideoPreview action={previewAction} />
 				</Resizable.Pane>
 
-				<Resizable.Handle />
+				<Resizable.Handle withHandle class="bg-transparent" />
 
-				<Resizable.Pane defaultSize={20}>
-					<div>Something else I don't know yet.</div>
+				<Resizable.Pane class="pl-4" defaultSize={20}>
+					<Card class="size-full">
+						<CardContent class="size-full">Something else idk</CardContent>
+					</Card>
 				</Resizable.Pane>
 			</Resizable.PaneGroup>
 		</Resizable.Pane>
