@@ -2,7 +2,6 @@ import sound from "$lib/assets/images/sound.png";
 
 export function getFileThumbnail(file: File): Promise<string> {
 	return new Promise((resolve, reject) => {
-		console.log("file type", file.type);
 		if (file.type.startsWith("video")) {
 			const canvas = document.createElement("canvas");
 			const video = document.createElement("video");

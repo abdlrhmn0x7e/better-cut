@@ -18,12 +18,7 @@
 		if (!files || files?.length === 0) throw new Error("You must provide 1 file atleast");
 
 		// add files to a global state
-
-		// Why doesn't this work?
-		// ctx.files = [...ctx.files, ...Array.from(files)];
-		// ctx.files.concat(Array.from(files));
-
-		Array.from(files).forEach((file) => ctx.files.push(file));
+		Array.from(files).forEach((file) => ctx.files.set(crypto.randomUUID(), file));
 	};
 
 	const handleImport: MouseEventHandler<HTMLButtonElement> = (e) => {

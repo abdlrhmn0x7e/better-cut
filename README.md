@@ -4,7 +4,7 @@ Open source client first video editor.
 
 ## TODO
 
-- [ ] Implement file import for video/audio/image assets
+- [x] Implement file import for video/audio/image assets
 - [ ] Use WebCodecs API to decode video frames efficiently
 - [ ] Create playhead store and timeline store (clips[], tracks[], playhead)
 - [ ] Sync playhead between decoding and UI (two-way)

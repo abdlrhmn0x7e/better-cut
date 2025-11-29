@@ -8,10 +8,11 @@
 	import { buttonVariants } from "../ui/button";
 
 	const ctx = getEditorState();
+	const files = $derived(Array.from(ctx.files.entries()));
 </script>
 
 <div class="space-y-2 h-full">
-	{#if ctx.files.length === 0}
+	{#if files.length === 0}
 		<Empty.Root class="h-full">
 			<Empty.Header>
 				<Empty.Media variant="icon">
@@ -29,8 +30,8 @@
 		</Empty.Root>
 	{:else}
 		<div class="flex flex-wrap gap-2">
-			{#each ctx.files as file ((file.name, file.type, file.lastModified))}
-				<FileCard {file} />
+			{#each files as [id, file] (id)}
+				<FileCard {id} {file} />
 			{/each}
 		</div>
 	{/if}
