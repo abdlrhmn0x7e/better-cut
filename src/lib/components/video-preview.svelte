@@ -18,7 +18,7 @@
 
 	function handlePlay() {
 		if (!ctx.comp) throw new Error("No initialized composition");
-		ctx.comp.render();
+		ctx.comp.play();
 	}
 
 	function handlePause() {

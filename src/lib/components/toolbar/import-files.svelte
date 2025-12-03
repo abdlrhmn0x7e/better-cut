@@ -12,7 +12,7 @@
 
 	const ctx = getEditorState();
 
-	const handleVideoInput = (e: Event) => {
+	const handleVideoInput = async (e: Event) => {
 		const target = e.target as HTMLInputElement;
 		const files = target.files;
 		if (!files || files?.length === 0) throw new Error("You must provide 1 file atleast");
@@ -31,7 +31,7 @@
 	});
 </script>
 
-<input bind:this={videoInput} type="file" accept="video/*, audio/*, image/*" multiple hidden />
+<input bind:this={videoInput} type="file" accept="video/mp4" multiple hidden />
 
 <button onclick={handleImport} {...props}>
 	<FilePlusIcon />

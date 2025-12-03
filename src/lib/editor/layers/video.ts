@@ -1,4 +1,3 @@
-import { createId } from "@paralleldrive/cuid2";
 import type { BaseLayer } from "./base.ts";
 import Konva from "konva";
 
@@ -87,7 +86,7 @@ export async function createVideoLayer({ src, order }: VideoLayerOptions) {
 	};
 
 	return {
-		id: createId(),
+		id: crypto.randomUUID(),
 		type: "video",
 
 		konvaLayer: layer,

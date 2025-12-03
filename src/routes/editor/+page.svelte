@@ -11,6 +11,7 @@
 	import VideoPreview from "$lib/components/video-preview.svelte";
 	import ProjectPanel from "$lib/components/project-panel/panel.svelte";
 	import Timeline from "$lib/components/timeline/timeline.svelte";
+	import { supportsWebCodecs } from "$lib/editor/capabilities";
 
 	const ctx = setEditorState();
 
@@ -26,42 +27,52 @@
 
 		ctx.comp.rescale();
 	}
+
+	console.log("WEB CODECS SUPPORT", supportsWebCodecs());
 </script>
 
 <main class="h-screen flex flex-col">
-	<Toolbar />
+	{#if supportsWebCodecs()}
+		<Toolbar />
 
-	<Resizable.PaneGroup
-		direction="vertical"
-		class="rounded-lg border"
-		onLayoutChange={handlePreviewResize}
-	>
-		<Resizable.Pane defaultSize={50}>
-			<Resizable.PaneGroup class="p-2" direction="horizontal" onLayoutChange={handlePreviewResize}>
-				<Resizable.Pane class="pr-4" defaultSize={30}>
-					<ProjectPanel />
-				</Resizable.Pane>
+		<Resizable.PaneGroup
+			direction="vertical"
+			class="rounded-lg border"
+			onLayoutChange={handlePreviewResize}
+		>
+			<Resizable.Pane defaultSize={50}>
+				<Resizable.PaneGroup
+					class="p-2"
+					direction="horizontal"
+					onLayoutChange={handlePreviewResize}
+				>
+					<Resizable.Pane class="pr-4" defaultSize={30}>
+						<ProjectPanel />
+					</Resizable.Pane>
 
-				<Resizable.Handle withHandle class="bg-transparent" />
+					<Resizable.Handle withHandle class="bg-transparent" />
 
-				<Resizable.Pane defaultSize={50}>
-					<VideoPreview action={previewAction} />
-				</Resizable.Pane>
+					<Resizable.Pane defaultSize={50}>
+						<VideoPreview action={previewAction} />
+					</Resizable.Pane>
 
-				<Resizable.Handle withHandle class="bg-transparent" />
+					<Resizable.Handle withHandle class="bg-transparent" />
 
-				<Resizable.Pane class="pl-4" defaultSize={20}>
-					<Card class="size-full">
-						<CardContent class="size-full">Something else idk</CardContent>
-					</Card>
-				</Resizable.Pane>
-			</Resizable.PaneGroup>
-		</Resizable.Pane>
+					<Resizable.Pane class="pl-4" defaultSize={20}>
+						<Card class="size-full">
+							<CardContent class="size-full">Something else idk</CardContent>
+						</Card>
+					</Resizable.Pane>
+				</Resizable.PaneGroup>
+			</Resizable.Pane>
 
-		<Resizable.Handle />
+			<Resizable.Handle />
 
-		<Resizable.Pane defaultSize={50}>
-			<Timeline />
-		</Resizable.Pane>
-	</Resizable.PaneGroup>
+			<Resizable.Pane defaultSize={50}>
+				<Timeline />
+			</Resizable.Pane>
+		</Resizable.PaneGroup>
+	{:else}
+		<p>Your browser isn't supported</p>
+	{/if}
 </main>

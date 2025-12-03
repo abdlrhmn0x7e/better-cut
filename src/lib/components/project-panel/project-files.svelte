@@ -4,7 +4,7 @@
 
 	import * as Empty from "$lib/components/ui/empty/index.js";
 	import { FolderXIcon } from "@lucide/svelte";
-	import ImportVideo from "../toolbar/import-video.svelte";
+	import ImportFiles from "../toolbar/import-files.svelte";
 	import { buttonVariants } from "../ui/button";
 
 	const ctx = getEditorState();
@@ -24,7 +24,7 @@
 					through the toolbar menu
 				</Empty.Description>
 				<Empty.Content>
-					<ImportVideo class={buttonVariants({})} />
+					<ImportFiles class={buttonVariants({})} />
 				</Empty.Content>
 			</Empty.Header>
 		</Empty.Root>

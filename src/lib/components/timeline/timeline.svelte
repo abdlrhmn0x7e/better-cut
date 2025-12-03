@@ -19,8 +19,7 @@
 
 					ctx.comp?.addLayer({
 						options: {
-							src: file,
-							order: 1
+							src: file
 						},
 						type: "video"
 					});

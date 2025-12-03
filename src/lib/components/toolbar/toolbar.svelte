@@ -1,6 +1,6 @@
 <script lang="ts">
 	import Button from "../ui/button/button.svelte";
-	import ImportVideo from "./import-video.svelte";
+	import ImportFiles from "./import-files.svelte";
 	import * as DropdownMenu from "$lib/components/ui/dropdown-menu/index.js";
 </script>
 
@@ -24,7 +24,7 @@
 		<DropdownMenu.Content align="start" class="min-w-48">
 			<DropdownMenu.Item class="w-full h-7">
 				{#snippet child({ props })}
-					<ImportVideo {...props} />
+					<ImportFiles {...props} />
 				{/snippet}
 			</DropdownMenu.Item>
 		</DropdownMenu.Content>

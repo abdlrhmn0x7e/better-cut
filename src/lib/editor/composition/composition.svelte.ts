@@ -14,14 +14,18 @@ export interface CompositionOptions {
 }
 
 export class Composition {
+	public playhead: number;
 	public playing: boolean;
-	public currentTime: number;
+
+	public duration: number;
+
 	public aspectRatio: number;
 	public layers: Array<Layer>;
 
 	private _stage: Konva.Stage;
 
 	constructor({ container, aspectRatio = 16 / 9, layers }: CompositionOptions) {
+		this.duration = 0;
 		this.aspectRatio = aspectRatio;
 
 		// initilaiz a stage
@@ -33,14 +37,18 @@ export class Composition {
 
 		// Reactive state
 		this.layers = $state(layers ?? []);
-		this.currentTime = $state(0);
+		this.playhead = $state(0);
 
 		this.playing = $state(false);
 	}
 
-	render() {
+	play() {
 		// loop over all layers? and play them?
-		this.layers.forEach((layer) => layer.play());
+		this.layers.forEach((layer) => {});
+	}
+
+	pause() {
+		this.layers.forEach((layer) => layer.pause());
 	}
 
 	async addLayer({ type, options }: LayerOptions) {
@@ -48,7 +56,8 @@ export class Composition {
 
 		switch (type) {
 			case "video": {
-				layer = await createVideoLayer(options);
+				layer = await createVideoLayer({ src: options.src, order: this.layers.length + 1 });
+				if (this.duration < layer.duration) this.duration = layer.duration; // max duration
 			}
 		}
 
