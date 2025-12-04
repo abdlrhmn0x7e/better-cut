@@ -6,9 +6,9 @@ Open source client first video editor.
 
 ### Core Editing
 
-- [ ] Media import (videos, images, audio)
+- [x] Media import (videos, images, audio)
 - [ ] Media library panel
-- [ ] Basic timeline (drag & drop)
+- [x] Basic timeline (drag & drop)
 - [ ] Trim clips
 - [ ] Split clips
 - [ ] Delete clips

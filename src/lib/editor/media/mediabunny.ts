@@ -1,7 +1,7 @@
-import { ALL_FORMATS, BlobSource, Conversion, Input, InputAudioTrack, InputVideoTrack } from "mediabunny";
+import { ALL_FORMATS, BlobSource, Input, InputAudioTrack, InputVideoTrack } from "mediabunny";
 
-type VideoProbe = {
-  input: Input<BlobSource>;
+export type VideoProbe = {
+	input: Input<BlobSource>;
 	video: InputVideoTrack;
 	audio: InputAudioTrack | null;
 	duration: number;
@@ -41,7 +41,7 @@ export async function probeVideo(file: File) {
 	const duration = await videoTrack.computeDuration();
 
 	return {
-    input,
+		input,
 		video: videoTrack,
 		audio: supportedAudio ? audioTrack : null,
 		duration,
@@ -50,10 +50,4 @@ export async function probeVideo(file: File) {
 			height: videoTrack.displayHeight
 		}
 	} satisfies VideoProbe;
-}
-
-export async function ensureEditanleFormat(file: File, probe: VideoProbe) {
-  const output = ;
-  const conversion = await Conversion.init()
-
 }

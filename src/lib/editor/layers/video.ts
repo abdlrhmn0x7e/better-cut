@@ -1,105 +1,108 @@
-import type { BaseLayer } from "./base.ts";
+import { CanvasSink, type WrappedCanvas } from "mediabunny";
+import { probeVideo, type VideoProbe } from "../media/mediabunny.ts";
+import { BaseLayer, type BaseLayerOptions } from "./base.ts";
 import Konva from "konva";
+import type { IFrame } from "konva/lib/types";
 
-interface VideoSource {
-	src: string;
-	element: HTMLVideoElement;
+type VideoLayerOptions = Omit<BaseLayerOptions, "type">;
 
-	width: number;
-	height: number;
+export class VideoLayer extends BaseLayer {
+	private _videoPrope: VideoProbe | null = null;
+	private _videoFrameIterator: AsyncGenerator<WrappedCanvas, void, unknown> | null = null;
+	private _videoSink: CanvasSink | null = null;
+	private _nextFrame: WrappedCanvas | null = null;
+	private _asyncId: number = 0;
 
-	duration: number;
-}
+	public konvaLayer: Konva.Layer | null = null;
+	private _konvaAnimation: Konva.Animation | null = null;
 
-export interface VideoLayer extends BaseLayer {
-	readonly type: "video";
+	private _canvas: HTMLCanvasElement | null = null;
+	private _canvasCtx: CanvasRenderingContext2D | null = null;
 
-	konvaLayer: Konva.Layer;
+	public isReady: boolean = false;
 
-	volume: number;
-	muted: boolean; // keep the volume state if the user unmutes the VideoLayer.
+	private constructor({ ...base }: VideoLayerOptions) {
+		super({ ...base, type: "video" });
+	}
 
-	play: () => void;
-	pause: () => void;
+	private async _init() {
+		this._videoPrope = await probeVideo(this.src);
+		this._videoSink = new CanvasSink(this._videoPrope.video);
+		this._videoFrameIterator = this._videoSink.canvases();
 
-	source: VideoSource;
-}
+		const firstFrame = (await this._videoFrameIterator.next()).value ?? null;
+		this._nextFrame = (await this._videoFrameIterator.next()).value ?? null;
 
-export async function loadVideo(file: File) {
-	const videoElement = document.createElement("video");
-	videoElement.src = URL.createObjectURL(file);
+		if (!firstFrame) throw new Error("UNEXPECTED: This video has no frames");
 
-	await new Promise((res, rej) => {
-		videoElement.onloadedmetadata = () => res(null);
-		videoElement.onerror = () => rej();
-	});
+		this._canvas = document.createElement("canvas");
+		this._canvas.width = this._videoPrope.dims.width;
+		this._canvas.height = this._videoPrope.dims.height;
+		this._canvasCtx = this._canvas.getContext("2d");
 
-	return {
-		src: "",
-		element: videoElement,
+		const imageNode = new Konva.Image({
+			image: this._canvas,
+			width: this._videoPrope.dims.width,
+			height: this._videoPrope.dims.height,
+			draggable: true
+		});
+		imageNode.width(this._videoPrope.dims.width);
+		imageNode.height(this._videoPrope.dims.height);
 
-		width: videoElement.videoWidth,
-		height: videoElement.videoHeight,
+		this.konvaLayer = new Konva.Layer();
+		const trans = new Konva.Transformer({
+			nodes: [imageNode],
+			keepRatio: true,
+			enabledAnchors: ["top-left", "top-right", "bottom-left", "bottom-right"]
+		});
+		this.konvaLayer.add(imageNode, trans);
 
-		duration: videoElement.duration
-	} satisfies VideoSource;
-}
+		this._konvaAnimation = new Konva.Animation(this._tick.bind(this), this.konvaLayer);
 
-export type VideoLayerOptions = {
-	src: File;
-	order: number;
-};
+		this._asyncId++;
+		this.isReady = true;
+		this.duration = this._videoPrope.duration;
+	}
 
-export async function createVideoLayer({ src, order }: VideoLayerOptions) {
-	if (order <= 0) throw new Error("A Layer's order must be positive");
+	static async init(options: VideoLayerOptions) {
+		const layer = new VideoLayer(options);
+		await layer._init();
 
-	const source = await loadVideo(src);
+		return layer;
+	}
 
-	const video = new Konva.Image({
-		image: source.element,
-		width: source.width,
-		height: source.height,
-		draggable: true
-	});
-	video.width(source.width);
-	video.height(source.height);
+	private _tick(frame: IFrame) {
+		if (!this.isReady || !this._videoFrameIterator || !this._nextFrame || !this.konvaLayer) return;
+		if (!this._canvas) throw new Error("unexpected");
+		if (!this._canvasCtx) throw new Error("Your browser doesn't support 2d canvas context");
 
-	const trans = new Konva.Transformer({
-		nodes: [video],
-		keepRatio: true,
-		enabledAnchors: ["top-left", "top-right", "bottom-left", "bottom-right"]
-	});
+		this._canvasCtx.clearRect(0, 0, this._canvas.width, this._canvas.height);
+		this._canvasCtx.drawImage(this._nextFrame.canvas, 0, 0);
 
-	const layer = new Konva.Layer();
-	layer.add(video, trans);
+		this._nextFrame = null; // clean up
+		void this._updateNextFrame();
+	}
 
-	const anim = new Konva.Animation(() => {}, layer);
+	private async _updateNextFrame() {
+		const nextFrame = (await this._videoFrameIterator?.next())?.value ?? null;
 
-	const play = () => {
-		source.element.play();
-		anim.start();
-	};
+		if (!nextFrame) return;
 
-	const pause = () => {
-		source.element.pause();
-		anim.stop();
-	};
+		console.log("next frame", nextFrame.timestamp);
 
-	return {
-		id: crypto.randomUUID(),
-		type: "video",
+		this._nextFrame = nextFrame;
+	}
 
-		konvaLayer: layer,
-		order: 1,
-		play,
-		pause,
+	play() {
+		if (!this._konvaAnimation) return;
 
-		source,
+		this._konvaAnimation.start();
+	}
 
-		startTime: 0,
-		duration: source.duration,
+	stop() {
+		if (!this._konvaAnimation || !this._videoFrameIterator) return;
 
-		muted: false,
-		volume: 100
-	} satisfies VideoLayer;
+		this._konvaAnimation.stop();
+		this._videoFrameIterator.return();
+	}
 }

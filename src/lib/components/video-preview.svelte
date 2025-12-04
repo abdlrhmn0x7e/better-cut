@@ -2,7 +2,7 @@
 	import { cn } from "$lib/utils";
 	import type { HTMLAttributes } from "svelte/elements";
 	import Button from "./ui/button/button.svelte";
-	import { ExpandIcon, PlayIcon } from "@lucide/svelte";
+	import { ExpandIcon, PauseIcon, PlayIcon } from "@lucide/svelte";
 	import type { Action } from "svelte/action";
 	import { getEditorState } from "$lib/editor/context.svelte";
 
@@ -23,6 +23,7 @@
 
 	function handlePause() {
 		if (!ctx.comp) throw new Error("No initialized composition");
+		ctx.comp.pause();
 	}
 </script>
 
@@ -41,7 +42,7 @@
 			</Button>
 
 			<Button onclick={handlePause} variant="ghost" size="icon-sm">
-				<ExpandIcon />
+				<PauseIcon />
 			</Button>
 		</div>
 	</CardFooter>

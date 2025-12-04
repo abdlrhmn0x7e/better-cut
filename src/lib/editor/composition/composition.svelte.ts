@@ -1,5 +1,4 @@
-import { createVideoLayer } from "../layers/video";
-import type { Layer, LayerOptions } from "./layers";
+import { BaseLayer, VideoLayer, type BaseLayerOptions } from "../layers";
 
 import Konva from "konva";
 
@@ -10,7 +9,7 @@ export interface CompositionOptions {
 		x: number;
 		y: number;
 	};
-	layers?: Array<Layer>;
+	layers?: Array<BaseLayer>;
 }
 
 export class Composition {
@@ -20,7 +19,7 @@ export class Composition {
 	public duration: number;
 
 	public aspectRatio: number;
-	public layers: Array<Layer>;
+	public layers: Array<BaseLayer>;
 
 	private _stage: Konva.Stage;
 
@@ -38,35 +37,30 @@ export class Composition {
 		// Reactive state
 		this.layers = $state(layers ?? []);
 		this.playhead = $state(0);
-
 		this.playing = $state(false);
 	}
 
 	play() {
-		// loop over all layers? and play them?
-		this.layers.forEach((layer) => {});
+		this.layers[0].play();
 	}
 
 	pause() {
-		this.layers.forEach((layer) => layer.pause());
+		this.layers[0].stop();
 	}
 
-	async addLayer({ type, options }: LayerOptions) {
-		let layer: Layer;
-
+	async addLayer({ type, src }: BaseLayerOptions) {
 		switch (type) {
 			case "video": {
-				layer = await createVideoLayer({ src: options.src, order: this.layers.length + 1 });
-				if (this.duration < layer.duration) this.duration = layer.duration; // max duration
+				const layer = await VideoLayer.init({ src });
+				this.layers.push(layer);
+				if (layer.konvaLayer) {
+					this._stage.add(layer.konvaLayer);
+					this._stage.draw();
+				}
+
+				break;
 			}
 		}
-
-		this._stage.add(layer.konvaLayer);
-		this.layers.push(layer);
-	}
-
-	async addLayers(layers: Array<LayerOptions>) {
-		await Promise.all(layers.map((layer) => this.addLayer(layer)));
 	}
 
 	rescale() {

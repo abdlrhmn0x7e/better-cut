@@ -9,13 +9,24 @@ type EditorContext = {
 	files: SvelteMap<string, File>;
 };
 
+let comp: EditorContext["comp"] = $state(null);
+let files: EditorContext["files"] = new SvelteMap();
+
+// Single shared context object, with comp wired to the rune
+const editor: EditorContext = {
+	get comp() {
+		return comp;
+	},
+	set comp(value) {
+		comp = value;
+	},
+	files
+};
+
 export const getEditorState = (key = DEFAULT_KEY) => {
 	return getContext<EditorContext>(key);
 };
 
-let comp: EditorContext["comp"] = $state(null);
-let files: EditorContext["files"] = new SvelteMap();
-
 export const setEditorState = (key = DEFAULT_KEY) => {
-	return setContext<EditorContext>(key, { comp, files });
+	return setContext<EditorContext>(key, editor);
 };
