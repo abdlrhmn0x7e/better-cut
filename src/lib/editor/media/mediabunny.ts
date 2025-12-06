@@ -2,6 +2,7 @@ import { ALL_FORMATS, BlobSource, Input, InputAudioTrack, InputVideoTrack } from
 
 export type VideoProbe = {
 	input: Input<BlobSource>;
+	fps: number;
 	video: InputVideoTrack;
 	audio: InputAudioTrack | null;
 	duration: number;
@@ -17,8 +18,10 @@ export async function probeVideo(file: File) {
 		source: new BlobSource(file)
 	});
 
-	const videoTrack = await input.getPrimaryVideoTrack();
-	const audioTrack = await input.getPrimaryAudioTrack();
+	const [videoTrack, audioTrack] = await Promise.all([
+		input.getPrimaryVideoTrack(),
+		input.getPrimaryAudioTrack()
+	]);
 
 	if (!videoTrack) {
 		throw new Error("the given file isn't a video");
@@ -38,10 +41,14 @@ export async function probeVideo(file: File) {
 		if (!(await audioTrack.canDecode())) supportedAudio = false;
 	}
 
-	const duration = await videoTrack.computeDuration();
+	const [duration, packetStats] = await Promise.all([
+		videoTrack.computeDuration(),
+		videoTrack.computePacketStats()
+	]);
 
 	return {
 		input,
+		fps: packetStats.averagePacketRate,
 		video: videoTrack,
 		audio: supportedAudio ? audioTrack : null,
 		duration,

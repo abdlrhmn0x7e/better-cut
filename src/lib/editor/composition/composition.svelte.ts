@@ -1,9 +1,7 @@
 import { BaseLayer, VideoLayer, type BaseLayerOptions } from "../layers";
 
-import Konva from "konva";
-
 export interface CompositionOptions {
-	container: HTMLDivElement;
+	container: HTMLCanvasElement;
 	aspectRatio?: number; // TODO: User provided later on
 	scale?: {
 		x: number;
@@ -13,25 +11,27 @@ export interface CompositionOptions {
 }
 
 export class Composition {
+	public fps: number;
 	public playhead: number;
 	public playing: boolean;
+	public scale = 0.75;
 
 	public duration: number;
 
 	public aspectRatio: number;
 	public layers: Array<BaseLayer>;
-
-	private _stage: Konva.Stage;
+	private _container: HTMLCanvasElement;
 
 	constructor({ container, aspectRatio = 16 / 9, layers }: CompositionOptions) {
+		this.fps = 24;
 		this.duration = 0;
 		this.aspectRatio = aspectRatio;
 
-		// initilaiz a stage
-		this._stage = new Konva.Stage({
-			container
-		});
+		this._container = container;
+		this._container.width = 1920;
+		this._container.height = 1080;
 
+		// initilaiz a stage
 		this.rescale();
 
 		// Reactive state
@@ -41,7 +41,7 @@ export class Composition {
 	}
 
 	play() {
-		this.layers[0].play();
+		this.layers[0].play(this.playhead);
 	}
 
 	pause() {
@@ -51,21 +51,21 @@ export class Composition {
 	async addLayer({ type, src }: BaseLayerOptions) {
 		switch (type) {
 			case "video": {
-				const layer = await VideoLayer.init({ src });
+				const layer = await VideoLayer.init({
+					src,
+					targetFps: 10,
+					canvas: this._container,
+					scale: this.scale - 0.25
+				});
 				this.layers.push(layer);
-				if (layer.konvaLayer) {
-					this._stage.add(layer.konvaLayer);
-					this._stage.draw();
-				}
-
 				break;
 			}
 		}
 	}
 
 	rescale() {
-		let width = this._stage.container().clientWidth;
-		let height = this._stage.container().clientHeight;
+		let width = this._container.parentElement?.clientWidth ?? 0;
+		let height = this._container.parentElement?.clientHeight ?? 0;
 
 		const scaledByWidth = width / this.aspectRatio <= height;
 
@@ -77,9 +77,7 @@ export class Composition {
 			height = width / this.aspectRatio;
 		}
 
-		this._stage.size({
-			width,
-			height
-		});
+		this._container.width = width;
+		this._container.height = height;
 	}
 }

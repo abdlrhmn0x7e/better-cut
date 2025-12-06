@@ -18,6 +18,6 @@ export abstract class BaseLayer {
 		this.type = type;
 	}
 
-	abstract play(): void;
+	abstract play(startTime?: number): void;
 	abstract stop(): void;
 }

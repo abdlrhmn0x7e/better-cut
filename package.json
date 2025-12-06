@@ -55,7 +55,6 @@
 	},
 	"dependencies": {
 		"@neondatabase/serverless": "^1.0.2",
-		"konva": "^10.0.12",
 		"mediabunny": "^1.25.3",
 		"mode-watcher": "^1.1.0"
 	}

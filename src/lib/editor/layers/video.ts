@@ -1,67 +1,71 @@
-import { CanvasSink, type WrappedCanvas } from "mediabunny";
+import { AudioBufferSink, CanvasSink, type WrappedCanvas } from "mediabunny";
 import { probeVideo, type VideoProbe } from "../media/mediabunny.ts";
 import { BaseLayer, type BaseLayerOptions } from "./base.ts";
-import Konva from "konva";
-import type { IFrame } from "konva/lib/types";
+import { assert } from "$lib/utils/misc";
 
-type VideoLayerOptions = Omit<BaseLayerOptions, "type">;
+type VideoLayerOptions = Omit<BaseLayerOptions, "type"> & {
+	scale: number;
+	targetFps: number;
+	canvas: HTMLCanvasElement;
+};
 
 export class VideoLayer extends BaseLayer {
+	public scale: number;
+	private _isPlaying = false;
 	private _videoPrope: VideoProbe | null = null;
 	private _videoFrameIterator: AsyncGenerator<WrappedCanvas, void, unknown> | null = null;
 	private _videoSink: CanvasSink | null = null;
+
 	private _nextFrame: WrappedCanvas | null = null;
-	private _asyncId: number = 0;
+	private _lastAlignedTimestamp = -1;
 
-	public konvaLayer: Konva.Layer | null = null;
-	private _konvaAnimation: Konva.Animation | null = null;
+	public targetFps: number;
+	private _frameDuration: number;
+	private _anchor = -1;
+	private _prevTimestamp = 0;
 
-	private _canvas: HTMLCanvasElement | null = null;
-	private _canvasCtx: CanvasRenderingContext2D | null = null;
+	private _audioCtx: AudioContext | null = null;
+	private _audioSink: AudioBufferSink | null = null;
 
-	public isReady: boolean = false;
+	private canvas: HTMLCanvasElement | null = null;
+	private canvasCtx: CanvasRenderingContext2D | null = null;
 
-	private constructor({ ...base }: VideoLayerOptions) {
+	public isReady = false;
+
+	private constructor({ targetFps, canvas, scale, ...base }: VideoLayerOptions) {
 		super({ ...base, type: "video" });
+		this.targetFps = targetFps;
+		this._frameDuration = 1000 / targetFps;
+
+		this.canvas = canvas;
+		this.canvasCtx = this.canvas.getContext("2d");
+		this.scale = scale;
 	}
 
 	private async _init() {
 		this._videoPrope = await probeVideo(this.src);
 		this._videoSink = new CanvasSink(this._videoPrope.video);
-		this._videoFrameIterator = this._videoSink.canvases();
+		this._videoFrameIterator = await this._createVideoFrameIterator();
 
 		const firstFrame = (await this._videoFrameIterator.next()).value ?? null;
 		this._nextFrame = (await this._videoFrameIterator.next()).value ?? null;
 
 		if (!firstFrame) throw new Error("UNEXPECTED: This video has no frames");
 
-		this._canvas = document.createElement("canvas");
-		this._canvas.width = this._videoPrope.dims.width;
-		this._canvas.height = this._videoPrope.dims.height;
-		this._canvasCtx = this._canvas.getContext("2d");
+		// We must create the audio context with the matching sample rate for correct acoustic results
+		// (especially for low-sample rate files)
+		this._audioCtx = new AudioContext({ sampleRate: this._videoPrope.audio?.sampleRate });
+		if (this._videoPrope.audio) this._audioSink = new AudioBufferSink(this._videoPrope.audio);
 
-		const imageNode = new Konva.Image({
-			image: this._canvas,
-			width: this._videoPrope.dims.width,
-			height: this._videoPrope.dims.height,
-			draggable: true
-		});
-		imageNode.width(this._videoPrope.dims.width);
-		imageNode.height(this._videoPrope.dims.height);
-
-		this.konvaLayer = new Konva.Layer();
-		const trans = new Konva.Transformer({
-			nodes: [imageNode],
-			keepRatio: true,
-			enabledAnchors: ["top-left", "top-right", "bottom-left", "bottom-right"]
-		});
-		this.konvaLayer.add(imageNode, trans);
-
-		this._konvaAnimation = new Konva.Animation(this._tick.bind(this), this.konvaLayer);
-
-		this._asyncId++;
 		this.isReady = true;
 		this.duration = this._videoPrope.duration;
+	}
+
+	private async _createVideoFrameIterator(startTime = 0) {
+		if (!this._videoSink) throw new Error("a video sink must be initialized first");
+		if (this._videoFrameIterator) await this._videoFrameIterator.return();
+
+		return this._videoSink.canvases(startTime);
 	}
 
 	static async init(options: VideoLayerOptions) {
@@ -71,16 +75,65 @@ export class VideoLayer extends BaseLayer {
 		return layer;
 	}
 
-	private _tick(frame: IFrame) {
-		if (!this.isReady || !this._videoFrameIterator || !this._nextFrame || !this.konvaLayer) return;
-		if (!this._canvas) throw new Error("unexpected");
-		if (!this._canvasCtx) throw new Error("Your browser doesn't support 2d canvas context");
+	private _render() {
+		requestAnimationFrame((timestamp) => {
+			this._anchor = timestamp;
+			this._prevTimestamp = timestamp;
+			this._tick.bind(this)(timestamp);
+		});
+	}
 
-		this._canvasCtx.clearRect(0, 0, this._canvas.width, this._canvas.height);
-		this._canvasCtx.drawImage(this._nextFrame.canvas, 0, 0);
+	private _tick(timestamp: number) {
+		if (!this._isPlaying) return;
 
-		this._nextFrame = null; // clean up
-		void this._updateNextFrame();
+		requestAnimationFrame(this._tick.bind(this));
+
+		const deltaTime = timestamp - this._prevTimestamp;
+		if (deltaTime < this._frameDuration) return;
+		this._prevTimestamp = timestamp;
+
+		const elapsed = (timestamp - this._anchor) / 1000; // elapsed time in seconds
+
+		void this._drawNextFrame(elapsed);
+	}
+
+	private async _drawNextFrame(elapsed: number) {
+		assert(this._videoPrope);
+		assert(this._nextFrame);
+		assert(this.canvas);
+		assert(this.canvasCtx);
+
+		let alignedTime = this._getAlignedTime();
+
+		// Downsampling, skip frames until the next free slot in the frame grid
+		while (alignedTime <= this._lastAlignedTimestamp) {
+			await this._updateNextFrame();
+			alignedTime = this._getAlignedTime();
+		}
+
+		// Upsampling, duplicate frames/don't move the next frame until it's time has elapsed.
+		const frameEndTime = this._nextFrame.timestamp + this._videoPrope.fps / 1000;
+		if (elapsed < frameEndTime) return;
+
+		this._lastAlignedTimestamp = alignedTime;
+
+		const nextCanvas = this._nextFrame.canvas;
+		this.canvasCtx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+		this.canvasCtx.drawImage(
+			nextCanvas,
+			0,
+			0,
+			nextCanvas.width * this.scale,
+			nextCanvas.height * this.scale
+		);
+
+		await this._updateNextFrame();
+	}
+
+	private _getAlignedTime() {
+		assert(this._nextFrame);
+
+		return Math.floor(this._nextFrame.timestamp * this.targetFps) / this.targetFps;
 	}
 
 	private async _updateNextFrame() {
@@ -88,21 +141,20 @@ export class VideoLayer extends BaseLayer {
 
 		if (!nextFrame) return;
 
-		console.log("next frame", nextFrame.timestamp);
-
 		this._nextFrame = nextFrame;
 	}
 
-	play() {
-		if (!this._konvaAnimation) return;
-
-		this._konvaAnimation.start();
+	async play(startTime = 0) {
+		// update the video frame iterator on play depending on the starting position
+		this._videoFrameIterator = await this._createVideoFrameIterator(startTime);
+		this._isPlaying = true;
+		this._render();
 	}
 
 	stop() {
-		if (!this._konvaAnimation || !this._videoFrameIterator) return;
+		if (!this._videoFrameIterator) return;
 
-		this._konvaAnimation.stop();
+		this._isPlaying = false;
 		this._videoFrameIterator.return();
 	}
 }

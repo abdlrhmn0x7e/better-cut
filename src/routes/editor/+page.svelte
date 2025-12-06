@@ -16,7 +16,7 @@
 	const ctx = setEditorState();
 
 	// this is here because I wanted all initializations to live in the root page
-	const previewAction: Action<HTMLDivElement> = (node) => {
+	const previewAction: Action<HTMLCanvasElement> = (node) => {
 		ctx.comp = new Composition({ container: node });
 	};
 
