@@ -21,8 +21,6 @@ export class VideoLayer extends BaseLayer {
 
 	public targetFps: number;
 	private _frameDuration: number;
-	private _anchor = -1;
-	private _prevTimestamp = 0;
 
 	private _audioCtx: AudioContext | null = null;
 	private _audioSink: AudioBufferSink | null = null;
@@ -77,24 +75,54 @@ export class VideoLayer extends BaseLayer {
 
 	private _render() {
 		requestAnimationFrame((timestamp) => {
-			this._anchor = timestamp;
-			this._prevTimestamp = timestamp;
-			this._tick.bind(this)(timestamp);
+			this._tick.bind(this)({
+				// offset the anchor by the first frame timestamp
+				// (multiplied by a 1000 to convert it to ms since the timestamp is in seconds)
+				anchor: timestamp - (this._nextFrame?.timestamp ?? 0) * 1000,
+				timestamp: timestamp,
+				prevTimestamp: timestamp
+			});
 		});
 	}
 
-	private _tick(timestamp: number) {
+	private _tick({
+		timestamp,
+		anchor,
+		prevTimestamp
+	}: {
+		timestamp: number;
+		anchor: number;
+		prevTimestamp: number;
+	}) {
 		if (!this._isPlaying) return;
 
-		requestAnimationFrame(this._tick.bind(this));
+		const deltaTime = timestamp - prevTimestamp;
 
-		const deltaTime = timestamp - this._prevTimestamp;
-		if (deltaTime < this._frameDuration) return;
-		this._prevTimestamp = timestamp;
+		const frameDurationPassed = deltaTime > this._frameDuration;
 
-		const elapsed = (timestamp - this._anchor) / 1000; // elapsed time in seconds
+		requestAnimationFrame((nextTimestamp) =>
+			this._tick.bind(this)({
+				anchor,
+				timestamp: nextTimestamp,
+				prevTimestamp: frameDurationPassed ? timestamp : prevTimestamp
+			})
+		);
 
-		void this._drawNextFrame(elapsed);
+		if (!frameDurationPassed) return;
+
+		// elapsed time in seconds offseted by the start time
+		const elapsed = (timestamp - anchor) / 1000;
+
+		console.log(
+			"anchor",
+			anchor,
+			"elapsed",
+			elapsed,
+			"next frame timestamp",
+			this._nextFrame?.timestamp
+		);
+
+		void this._drawNextFrame(elapsed); // offset it by the start time
 	}
 
 	private async _drawNextFrame(elapsed: number) {
@@ -144,10 +172,18 @@ export class VideoLayer extends BaseLayer {
 		this._nextFrame = nextFrame;
 	}
 
-	async play(startTime = 0) {
+	async play(startTime?: number) {
 		// update the video frame iterator on play depending on the starting position
-		this._videoFrameIterator = await this._createVideoFrameIterator(startTime);
+		console.log("next frame timestamp", this._nextFrame?.timestamp);
+
+		this._videoFrameIterator = await this._createVideoFrameIterator(
+			startTime ?? this._nextFrame?.timestamp ?? 0
+		);
+		this._lastAlignedTimestamp = this._getAlignedTime();
+		this._nextFrame = (await this._videoFrameIterator.next()).value ?? null;
+
 		this._isPlaying = true;
+
 		this._render();
 	}
 

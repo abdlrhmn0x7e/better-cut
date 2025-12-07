@@ -41,7 +41,7 @@ export class Composition {
 	}
 
 	play() {
-		this.layers[0].play(this.playhead);
+		this.layers[0].play();
 	}
 
 	pause() {
@@ -53,7 +53,7 @@ export class Composition {
 			case "video": {
 				const layer = await VideoLayer.init({
 					src,
-					targetFps: 10,
+					targetFps: 60,
 					canvas: this._container,
 					scale: this.scale - 0.25
 				});
