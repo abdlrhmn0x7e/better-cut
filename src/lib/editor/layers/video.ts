@@ -1,4 +1,9 @@
-import { AudioBufferSink, CanvasSink, type WrappedCanvas } from "mediabunny";
+import {
+	AudioBufferSink,
+	CanvasSink,
+	type WrappedAudioBuffer,
+	type WrappedCanvas
+} from "mediabunny";
 import { probeVideo, type VideoProbe } from "../media/mediabunny.ts";
 import { BaseLayer, type BaseLayerOptions } from "./base.ts";
 import { assert } from "$lib/utils/misc";
@@ -20,10 +25,14 @@ export class VideoLayer extends BaseLayer {
 	private _lastAlignedTimestamp = -1;
 
 	public targetFps: number;
-	private _frameDuration: number;
 
 	private _audioCtx: AudioContext | null = null;
 	private _audioSink: AudioBufferSink | null = null;
+	private _audioGain: GainNode | null = null;
+	private _audioIterator: AsyncGenerator<WrappedAudioBuffer, void, unknown> | null = null;
+	private _audioNodesQueue: Set<AudioBufferSourceNode> = new Set();
+	private _isSchedulingAudio = false;
+	private _lastScheduledAudioTimestamp = -1;
 
 	private canvas: HTMLCanvasElement | null = null;
 	private canvasCtx: CanvasRenderingContext2D | null = null;
@@ -33,7 +42,6 @@ export class VideoLayer extends BaseLayer {
 	private constructor({ targetFps, canvas, scale, ...base }: VideoLayerOptions) {
 		super({ ...base, type: "video" });
 		this.targetFps = targetFps;
-		this._frameDuration = 1000 / targetFps;
 
 		this.canvas = canvas;
 		this.canvasCtx = this.canvas.getContext("2d");
@@ -53,7 +61,12 @@ export class VideoLayer extends BaseLayer {
 		// We must create the audio context with the matching sample rate for correct acoustic results
 		// (especially for low-sample rate files)
 		this._audioCtx = new AudioContext({ sampleRate: this._videoPrope.audio?.sampleRate });
-		if (this._videoPrope.audio) this._audioSink = new AudioBufferSink(this._videoPrope.audio);
+		if (this._videoPrope.audio) {
+			this._audioGain = this._audioCtx.createGain();
+			this._audioGain.connect(this._audioCtx.destination);
+			this._audioSink = new AudioBufferSink(this._videoPrope.audio);
+			this._audioIterator = await this._createAudioIterator();
+		}
 
 		this.isReady = true;
 		this.duration = this._videoPrope.duration;
@@ -66,6 +79,13 @@ export class VideoLayer extends BaseLayer {
 		return this._videoSink.canvases(startTime);
 	}
 
+	private async _createAudioIterator(startTime = 0) {
+		if (!this._audioSink) throw new Error("an audio sink must be initialized first");
+		if (this._audioIterator) await this._audioIterator.return();
+
+		return this._audioSink.buffers(startTime);
+	}
+
 	static async init(options: VideoLayerOptions) {
 		const layer = new VideoLayer(options);
 		await layer._init();
@@ -74,55 +94,39 @@ export class VideoLayer extends BaseLayer {
 	}
 
 	private _render() {
-		requestAnimationFrame((timestamp) => {
+		requestAnimationFrame(() => {
+			assert(this._audioCtx);
+
 			this._tick.bind(this)({
 				// offset the anchor by the first frame timestamp
-				// (multiplied by a 1000 to convert it to ms since the timestamp is in seconds)
-				anchor: timestamp - (this._nextFrame?.timestamp ?? 0) * 1000,
-				timestamp: timestamp,
-				prevTimestamp: timestamp
+				anchor: this._audioCtx.currentTime - (this._nextFrame?.timestamp ?? 0),
+				timestamp: this._nextFrame?.timestamp ?? 0
 			});
 		});
 	}
 
-	private _tick({
-		timestamp,
-		anchor,
-		prevTimestamp
-	}: {
-		timestamp: number;
-		anchor: number;
-		prevTimestamp: number;
-	}) {
-		if (!this._isPlaying) return;
-
-		const deltaTime = timestamp - prevTimestamp;
-
-		const frameDurationPassed = deltaTime > this._frameDuration;
-
-		requestAnimationFrame((nextTimestamp) =>
-			this._tick.bind(this)({
-				anchor,
-				timestamp: nextTimestamp,
-				prevTimestamp: frameDurationPassed ? timestamp : prevTimestamp
-			})
-		);
-
-		if (!frameDurationPassed) return;
+	private _tick({ timestamp, anchor }: { timestamp: number; anchor: number }) {
+		// if we're not playing or there's no more video frames return
+		if (!this._isPlaying || !this._nextFrame) return;
 
 		// elapsed time in seconds offseted by the start time
-		const elapsed = (timestamp - anchor) / 1000;
+		const elapsed = timestamp - anchor;
+		const scheduleMoreAudio = this._lastScheduledAudioTimestamp - elapsed < 2;
 
-		console.log(
-			"anchor",
-			anchor,
-			"elapsed",
-			elapsed,
-			"next frame timestamp",
-			this._nextFrame?.timestamp
-		);
+		console.log("elapsed", elapsed, "scheduleAudioUpTo", this._lastScheduledAudioTimestamp);
+
+		if (scheduleMoreAudio) void this._scheduleAudio(anchor);
 
 		void this._drawNextFrame(elapsed); // offset it by the start time
+
+		requestAnimationFrame(() => {
+			assert(this._audioCtx);
+
+			this._tick.bind(this)({
+				anchor,
+				timestamp: this._audioCtx.currentTime
+			});
+		});
 	}
 
 	private async _drawNextFrame(elapsed: number) {
@@ -167,30 +171,76 @@ export class VideoLayer extends BaseLayer {
 	private async _updateNextFrame() {
 		const nextFrame = (await this._videoFrameIterator?.next())?.value ?? null;
 
-		if (!nextFrame) return;
+		if (!nextFrame) return null;
 
 		this._nextFrame = nextFrame;
 	}
 
 	async play(startTime?: number) {
+		if (!this._audioCtx) return;
+
 		// update the video frame iterator on play depending on the starting position
-		console.log("next frame timestamp", this._nextFrame?.timestamp);
-
-		this._videoFrameIterator = await this._createVideoFrameIterator(
-			startTime ?? this._nextFrame?.timestamp ?? 0
-		);
+		const videoStartPosition = startTime ?? this._nextFrame?.timestamp ?? 0;
+		this._videoFrameIterator = await this._createVideoFrameIterator(videoStartPosition);
+		this._audioIterator = await this._createAudioIterator(videoStartPosition);
 		this._lastAlignedTimestamp = this._getAlignedTime();
-		this._nextFrame = (await this._videoFrameIterator.next()).value ?? null;
 
+		this._nextFrame = (await this._videoFrameIterator.next()).value ?? null;
 		this._isPlaying = true;
+
+		const audioStartPosition = this._audioCtx.currentTime - (this._nextFrame?.timestamp ?? 0);
+		this._scheduleAudio(audioStartPosition);
 
 		this._render();
 	}
 
+	async _scheduleAudio(anchor: number, duration = 4) {
+		if (!this._audioSink || !this._audioIterator || !this._audioCtx || !this._audioGain) return;
+		if (this._isSchedulingAudio) return; // to prevent concurrent calls
+
+		let remaining = duration;
+		this._isSchedulingAudio = true;
+
+		let lastTimestamp = -1;
+		while (remaining > 0) {
+			const sample = (await this._audioIterator.next()).value;
+			if (!sample) {
+				console.log("no sample");
+				break;
+			}
+
+			const { buffer, timestamp } = sample;
+			const node = this._audioCtx.createBufferSource();
+			node.buffer = buffer;
+			node.connect(this._audioGain);
+
+			const startTimestamp = anchor + timestamp;
+			if (startTimestamp >= anchor) node.start(startTimestamp);
+			else node.start(anchor, anchor - startTimestamp);
+
+			remaining -= buffer.duration;
+			lastTimestamp = timestamp + buffer.duration;
+
+			this._audioNodesQueue.add(node);
+			node.onended = () => {
+				this._audioNodesQueue.delete(node);
+			};
+		}
+
+		this._isSchedulingAudio = false;
+		this._lastScheduledAudioTimestamp = lastTimestamp;
+	}
+
 	stop() {
-		if (!this._videoFrameIterator) return;
+		for (const node of this._audioNodesQueue) {
+			node.stop();
+		}
+		this._audioNodesQueue.clear();
+		this._isSchedulingAudio = false;
+		this._lastScheduledAudioTimestamp = -1;
 
 		this._isPlaying = false;
-		this._videoFrameIterator.return();
+		this._videoFrameIterator?.return();
+		this._audioIterator?.return();
 	}
 }

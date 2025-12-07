@@ -55,7 +55,7 @@ export class Composition {
 					src,
 					targetFps: 60,
 					canvas: this._container,
-					scale: this.scale - 0.25
+					scale: this.scale - 0.35
 				});
 				this.layers.push(layer);
 				break;
