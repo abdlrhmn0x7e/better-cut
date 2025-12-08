@@ -12,9 +12,11 @@ export interface CompositionOptions {
 
 export class Composition {
 	public fps: number;
-	public playhead: number;
+	public currentTimestamp: number;
 	public playing: boolean;
 	public scale = 0.75;
+
+	private _audioCtx: AudioContext;
 
 	public duration: number;
 
@@ -27,6 +29,8 @@ export class Composition {
 		this.duration = 0;
 		this.aspectRatio = aspectRatio;
 
+		this._audioCtx = new AudioContext();
+
 		this._container = container;
 		this._container.width = 1920;
 		this._container.height = 1080;
@@ -36,16 +40,8 @@ export class Composition {
 
 		// Reactive state
 		this.layers = $state(layers ?? []);
-		this.playhead = $state(0);
+		this.currentTimestamp = $state(0);
 		this.playing = $state(false);
-	}
-
-	play() {
-		this.layers[0].play();
-	}
-
-	pause() {
-		this.layers[0].stop();
 	}
 
 	async addLayer({ type, src }: BaseLayerOptions) {
@@ -53,14 +49,48 @@ export class Composition {
 			case "video": {
 				const layer = await VideoLayer.init({
 					src,
-					targetFps: 60,
+					targetFps: this.fps,
 					canvas: this._container,
-					scale: this.scale - 0.35
+					scale: this.scale - 0.35,
+					audioCtx: this._audioCtx
 				});
 				this.layers.push(layer);
 				break;
 			}
 		}
+	}
+
+	play() {
+		this.playing = true;
+
+		requestAnimationFrame(() => {
+			this._tick.bind(this)({
+				anchor: this._audioCtx.currentTime - this.currentTimestamp
+			});
+		});
+	}
+
+	private _tick({ anchor }: { anchor: number }) {
+		// if we're not playing return
+		if (!this.playing) return;
+
+		this.currentTimestamp = this._audioCtx.currentTime - anchor;
+
+		// console.log("audio ctx timestamp", this._audioCtx.currentTime);
+		// console.log("timestamp", timestamp);
+		// console.log("currentTimestamp", this.currentTimestamp);
+
+		this.layers.forEach((layer) => layer.update(this.currentTimestamp));
+
+		requestAnimationFrame(() => {
+			this._tick.bind(this)({
+				anchor
+			});
+		});
+	}
+
+	pause() {
+		this.playing = false;
 	}
 
 	rescale() {

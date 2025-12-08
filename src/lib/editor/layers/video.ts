@@ -11,22 +11,26 @@ import { assert } from "$lib/utils/misc";
 type VideoLayerOptions = Omit<BaseLayerOptions, "type"> & {
 	scale: number;
 	targetFps: number;
+	audioCtx: AudioContext;
 	canvas: HTMLCanvasElement;
 };
 
 export class VideoLayer extends BaseLayer {
 	public scale: number;
-	private _isPlaying = false;
+	public startOffset = 0;
+
+	private _cache = new Map<number, WrappedCanvas>();
+
 	private _videoPrope: VideoProbe | null = null;
 	private _videoFrameIterator: AsyncGenerator<WrappedCanvas, void, unknown> | null = null;
 	private _videoSink: CanvasSink | null = null;
 
-	private _nextFrame: WrappedCanvas | null = null;
+	private _currentFrame: WrappedCanvas | null = null;
 	private _lastAlignedTimestamp = -1;
 
 	public targetFps: number;
 
-	private _audioCtx: AudioContext | null = null;
+	private _audioCtx: AudioContext;
 	private _audioSink: AudioBufferSink | null = null;
 	private _audioGain: GainNode | null = null;
 	private _audioIterator: AsyncGenerator<WrappedAudioBuffer, void, unknown> | null = null;
@@ -39,12 +43,13 @@ export class VideoLayer extends BaseLayer {
 
 	public isReady = false;
 
-	private constructor({ targetFps, canvas, scale, ...base }: VideoLayerOptions) {
+	private constructor({ targetFps, canvas, scale, audioCtx, ...base }: VideoLayerOptions) {
 		super({ ...base, type: "video" });
 		this.targetFps = targetFps;
 
 		this.canvas = canvas;
 		this.canvasCtx = this.canvas.getContext("2d");
+		this._audioCtx = audioCtx;
 		this.scale = scale;
 	}
 
@@ -54,13 +59,10 @@ export class VideoLayer extends BaseLayer {
 		this._videoFrameIterator = await this._createVideoFrameIterator();
 
 		const firstFrame = (await this._videoFrameIterator.next()).value ?? null;
-		this._nextFrame = (await this._videoFrameIterator.next()).value ?? null;
+		this._currentFrame = (await this._videoFrameIterator.next()).value ?? null;
 
 		if (!firstFrame) throw new Error("UNEXPECTED: This video has no frames");
 
-		// We must create the audio context with the matching sample rate for correct acoustic results
-		// (especially for low-sample rate files)
-		this._audioCtx = new AudioContext({ sampleRate: this._videoPrope.audio?.sampleRate });
 		if (this._videoPrope.audio) {
 			this._audioGain = this._audioCtx.createGain();
 			this._audioGain.connect(this._audioCtx.destination);
@@ -93,63 +95,40 @@ export class VideoLayer extends BaseLayer {
 		return layer;
 	}
 
-	private _render() {
-		requestAnimationFrame(() => {
-			assert(this._audioCtx);
-
-			this._tick.bind(this)({
-				// offset the anchor by the first frame timestamp
-				anchor: this._audioCtx.currentTime - (this._nextFrame?.timestamp ?? 0),
-				timestamp: this._nextFrame?.timestamp ?? 0
-			});
-		});
-	}
-
-	private _tick({ timestamp, anchor }: { timestamp: number; anchor: number }) {
-		// if we're not playing or there's no more video frames return
-		if (!this._isPlaying || !this._nextFrame) return;
-
-		// elapsed time in seconds offseted by the start time
-		const elapsed = timestamp - anchor;
-		const scheduleMoreAudio = this._lastScheduledAudioTimestamp - elapsed < 2;
-
-		console.log("elapsed", elapsed, "scheduleAudioUpTo", this._lastScheduledAudioTimestamp);
-
-		if (scheduleMoreAudio) void this._scheduleAudio(anchor);
-
-		void this._drawNextFrame(elapsed); // offset it by the start time
-
-		requestAnimationFrame(() => {
-			assert(this._audioCtx);
-
-			this._tick.bind(this)({
-				anchor,
-				timestamp: this._audioCtx.currentTime
-			});
-		});
-	}
-
-	private async _drawNextFrame(elapsed: number) {
+	/**
+	 * Takes the composition current time and updates the canvas
+	 * based on whether or not the current time intersects with this layer
+	 * if it intersects it draws the corresponding frame to that time
+	 * otherwise it returns
+	 */
+	async update(time: number) {
 		assert(this._videoPrope);
-		assert(this._nextFrame);
+		assert(this._currentFrame);
 		assert(this.canvas);
 		assert(this.canvasCtx);
 
+		// const scheduleMoreAudio = this._lastScheduledAudioTimestamp - time < 2;
+		// if (scheduleMoreAudio) void this._scheduleAudio(time);
+
 		let alignedTime = this._getAlignedTime();
+		console.log("aligned time", alignedTime);
 
 		// Downsampling, skip frames until the next free slot in the frame grid
 		while (alignedTime <= this._lastAlignedTimestamp) {
-			await this._updateNextFrame();
+			await this._updateCurrentFrame(time);
 			alignedTime = this._getAlignedTime();
 		}
 
 		// Upsampling, duplicate frames/don't move the next frame until it's time has elapsed.
-		const frameEndTime = this._nextFrame.timestamp + this._videoPrope.fps / 1000;
-		if (elapsed < frameEndTime) return;
+		const frameEndTime = this._currentFrame.timestamp + this._videoPrope.fps / 1000;
+		if (time < frameEndTime) return;
 
 		this._lastAlignedTimestamp = alignedTime;
 
-		const nextCanvas = this._nextFrame.canvas;
+		const frame = this._cache.get(alignedTime);
+		if (!frame) await this._setCache(alignedTime);
+
+		const nextCanvas = this._currentFrame.canvas;
 		this.canvasCtx.clearRect(0, 0, this.canvas.width, this.canvas.height);
 		this.canvasCtx.drawImage(
 			nextCanvas,
@@ -159,39 +138,50 @@ export class VideoLayer extends BaseLayer {
 			nextCanvas.height * this.scale
 		);
 
-		await this._updateNextFrame();
+		await this._updateCurrentFrame();
+	}
+
+	private async _setCache(alignedTime: number) {
+		assert(this._videoFrameIterator);
+		await this._videoFrameIterator.return();
+
+		const videoStartTime = alignedTime - this.startOffset;
+		await this._createVideoFrameIterator(videoStartTime);
+
+		const nextFrame = (await this._videoFrameIterator.next()).value ?? null;
+		if (!nextFrame) return;
+
+		this._currentFrame = nextFrame;
+		this._cache.set(alignedTime, nextFrame);
 	}
 
 	private _getAlignedTime() {
-		assert(this._nextFrame);
+		assert(this._currentFrame);
 
-		return Math.floor(this._nextFrame.timestamp * this.targetFps) / this.targetFps;
+		return Math.floor(this._currentFrame.timestamp * this.targetFps) / this.targetFps;
 	}
 
-	private async _updateNextFrame() {
+	private async _updateCurrentFrame() {
 		const nextFrame = (await this._videoFrameIterator?.next())?.value ?? null;
-
 		if (!nextFrame) return null;
 
-		this._nextFrame = nextFrame;
+		this._cache.set(this._getAlignedTime(), nextFrame);
+
+		this._currentFrame = nextFrame;
 	}
 
 	async play(startTime?: number) {
-		if (!this._audioCtx) return;
-
 		// update the video frame iterator on play depending on the starting position
-		const videoStartPosition = startTime ?? this._nextFrame?.timestamp ?? 0;
+		const videoStartPosition = startTime ?? this._currentFrame?.timestamp ?? 0;
 		this._videoFrameIterator = await this._createVideoFrameIterator(videoStartPosition);
+
 		this._audioIterator = await this._createAudioIterator(videoStartPosition);
 		this._lastAlignedTimestamp = this._getAlignedTime();
 
-		this._nextFrame = (await this._videoFrameIterator.next()).value ?? null;
-		this._isPlaying = true;
+		this._currentFrame = (await this._videoFrameIterator.next()).value ?? null;
 
-		const audioStartPosition = this._audioCtx.currentTime - (this._nextFrame?.timestamp ?? 0);
+		const audioStartPosition = this._audioCtx.currentTime - (this._currentFrame?.timestamp ?? 0);
 		this._scheduleAudio(audioStartPosition);
-
-		this._render();
 	}
 
 	async _scheduleAudio(anchor: number, duration = 4) {
