@@ -1,3 +1,4 @@
+import { assert } from "$lib/utils/misc";
 import { BaseLayer, VideoLayer, type BaseLayerOptions } from "../layers";
 
 export interface CompositionOptions {
@@ -14,6 +15,8 @@ export class Composition {
 	public fps: number;
 	public currentTimestamp: number;
 	public playing: boolean;
+	private _isSeeking = false;
+
 	public scale = 0.75;
 
 	private _audioCtx: AudioContext;
@@ -22,18 +25,24 @@ export class Composition {
 
 	public aspectRatio: number;
 	public layers: Array<BaseLayer>;
-	private _container: HTMLCanvasElement;
+	private _canvas: HTMLCanvasElement;
+	private _canvasCtx: CanvasRenderingContext2D;
+	private _cache = new Map<number, OffscreenCanvas>();
 
 	constructor({ container, aspectRatio = 16 / 9, layers }: CompositionOptions) {
 		this.fps = 24;
-		this.duration = 0;
+		this.duration = 60;
 		this.aspectRatio = aspectRatio;
 
 		this._audioCtx = new AudioContext();
 
-		this._container = container;
-		this._container.width = 1920;
-		this._container.height = 1080;
+		this._canvas = container;
+		this._canvas.width = 1920;
+		this._canvas.height = 1080;
+
+		const canvasCtx = this._canvas.getContext("2d");
+		if (!canvasCtx) throw new Error("Your browser doesn't support 2d context canvas");
+		this._canvasCtx = canvasCtx;
 
 		// initilaiz a stage
 		this.rescale();
@@ -50,7 +59,6 @@ export class Composition {
 				const layer = await VideoLayer.init({
 					src,
 					targetFps: this.fps,
-					canvas: this._container,
 					scale: this.scale - 0.35,
 					audioCtx: this._audioCtx
 				});
@@ -60,8 +68,19 @@ export class Composition {
 		}
 	}
 
-	play() {
+	async play() {
+		if (this.playing) return;
 		this.playing = true;
+
+		const anchor = this._audioCtx.currentTime - this.currentTimestamp;
+		this.currentTimestamp = this._audioCtx.currentTime - anchor;
+
+		for (const layer of this.layers) {
+			await layer.start({
+				anchor,
+				time: this.currentTimestamp
+			});
+		}
 
 		requestAnimationFrame(() => {
 			this._tick.bind(this)({
@@ -76,11 +95,17 @@ export class Composition {
 
 		this.currentTimestamp = this._audioCtx.currentTime - anchor;
 
-		// console.log("audio ctx timestamp", this._audioCtx.currentTime);
-		// console.log("timestamp", timestamp);
-		// console.log("currentTimestamp", this.currentTimestamp);
+		this._canvasCtx.clearRect(0, 0, this._canvas.width, this._canvas.height);
+		this.layers.forEach(async (layer) => {
+			await layer.update({
+				anchor,
+				time: this.currentTimestamp
+			});
 
-		this.layers.forEach((layer) => layer.update(this.currentTimestamp));
+			if (layer instanceof VideoLayer) {
+				this.draw(layer);
+			}
+		});
 
 		requestAnimationFrame(() => {
 			this._tick.bind(this)({
@@ -89,13 +114,74 @@ export class Composition {
 		});
 	}
 
-	pause() {
+	draw(layer: VideoLayer) {
+		assert(layer.canvas);
+		this._canvasCtx.drawImage(
+			layer.canvas,
+			0,
+			0,
+			layer.canvas.width * this.scale,
+			layer.canvas.height * this.scale
+		);
+	}
+
+	async pause() {
+		if (!this.playing) return;
+
 		this.playing = false;
+		await Promise.all(
+			this.layers.map((layer) =>
+				layer.stop({
+					anchor: this.currentTimestamp, // dummy
+					time: this.currentTimestamp
+				})
+			)
+		);
+	}
+
+	async seek(time: number) {
+		if (this._isSeeking) return;
+		if (time < 0 || time > this.duration) return;
+
+		this._isSeeking = true;
+
+		// stop ticking while seeking
+		const wasPlaying = this.playing;
+		this.playing = false;
+
+		const anchor = this._audioCtx.currentTime - time;
+
+		await Promise.all(
+			this.layers.map(async (layer) => {
+				const opts = { anchor, time };
+				await layer.stop(opts);
+				await layer.start(opts);
+			})
+		);
+
+		// draw once after all layers are updated
+		this._canvasCtx.clearRect(0, 0, this._canvas.width, this._canvas.height);
+		for (const layer of this.layers) {
+			if (layer instanceof VideoLayer && layer.canvas) {
+				console.log("drawing layer");
+				this.draw(layer); // ensure draw uses latest frame
+			}
+		}
+
+		this.currentTimestamp = time;
+
+		// optionally resume playback
+		if (wasPlaying) {
+			this.playing = true;
+			requestAnimationFrame(() => this._tick({ anchor }));
+		}
+
+		this._isSeeking = false;
 	}
 
 	rescale() {
-		let width = this._container.parentElement?.clientWidth ?? 0;
-		let height = this._container.parentElement?.clientHeight ?? 0;
+		let width = this._canvas.parentElement?.clientWidth ?? 0;
+		let height = this._canvas.parentElement?.clientHeight ?? 0;
 
 		const scaledByWidth = width / this.aspectRatio <= height;
 
@@ -107,7 +193,7 @@ export class Composition {
 			height = width / this.aspectRatio;
 		}
 
-		this._container.width = width;
-		this._container.height = height;
+		this._canvas.width = width;
+		this._canvas.height = height;
 	}
 }

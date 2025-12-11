@@ -5,12 +5,15 @@ export type BaseLayerOptions = {
 	type: LayerType;
 };
 
+export type TimeOptions = { anchor: number; time: number };
+
 export abstract class BaseLayer {
 	public id: string;
 	public type: LayerType;
 	public src: File;
 	public startTime: number = 0;
 	public duration: number | null = null;
+	public startOffset = 0;
 
 	constructor({ src, type }: BaseLayerOptions) {
 		this.id = crypto.randomUUID();
@@ -18,7 +21,7 @@ export abstract class BaseLayer {
 		this.type = type;
 	}
 
-	abstract update(time: number): void;
-	abstract play(startTime?: number): void;
-	abstract stop(): void;
+	abstract update(options: TimeOptions): Promise<void>;
+	abstract start(options: TimeOptions): Promise<void>;
+	abstract stop(options: TimeOptions): Promise<void>;
 }

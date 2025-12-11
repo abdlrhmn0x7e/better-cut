@@ -18,12 +18,12 @@
 
 	function handlePlay() {
 		if (!ctx.comp) throw new Error("No initialized composition");
-		ctx.comp.play();
+		void ctx.comp.play();
 	}
 
 	function handlePause() {
 		if (!ctx.comp) throw new Error("No initialized composition");
-		ctx.comp.pause();
+		void ctx.comp.pause();
 	}
 </script>
 
