@@ -30,13 +30,13 @@
 </script>
 
 <main class="h-screen flex flex-col">
-	{#if supportsWebCodecs() && ctx.comp}
+	{#if supportsWebCodecs()}
 		<Toolbar />
 
 		<Resizable.PaneGroup direction="vertical" onLayoutChange={handlePreviewResize}>
 			<Resizable.Pane defaultSize={50}>
-				<Resizable.PaneGroup class="" direction="horizontal" onLayoutChange={handlePreviewResize}>
-					<Resizable.Pane class="pr-4" defaultSize={30}>
+				<Resizable.PaneGroup direction="horizontal" onLayoutChange={handlePreviewResize}>
+					<Resizable.Pane defaultSize={30}>
 						<ProjectPanel />
 					</Resizable.Pane>
 
@@ -48,7 +48,7 @@
 
 					<Resizable.Handle withHandle class="bg-transparent" />
 
-					<Resizable.Pane class="pl-4" defaultSize={20}>
+					<Resizable.Pane>
 						<div class="size-full">Layer/Effect Options</div>
 					</Resizable.Pane>
 				</Resizable.PaneGroup>

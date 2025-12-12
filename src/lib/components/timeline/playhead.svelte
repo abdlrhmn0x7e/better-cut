@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { getEditorState } from "$lib/editor/context.svelte";
-	import { TICK_PADDING } from "./contants";
+	import { TICK_PADDING } from "./constants";
 	import { getTimelineState } from "./timeline-state.svelte";
 
 	const ctx = getEditorState();

@@ -4,7 +4,7 @@
 	import Playhead from "./playhead.svelte";
 	import Ticks from "./ticks.svelte";
 	import * as Resizable from "$lib/components/ui/resizable/index.js";
-	import { TICK_PADDING } from "./contants";
+	import { TICK_PADDING } from "./constants";
 	import { setTimelineState } from "./timeline-state.svelte";
 	import Scrollbar from "./scrollbar.svelte";
 
@@ -45,26 +45,26 @@
 		if (!ctx.comp) return;
 		if (!e.shiftKey) return;
 
-		const normalizedDeltaY = e.deltaY / 4;
+		const normalizedDeltaY = e.deltaY;
 		timelineState.scrollLeft = Math.max(normalizedDeltaY + timelineState.scrollLeft, 0);
 	}
 </script>
 
 <div
-	class="relative h-full overflow-hidden select-none"
-	ondrop={handleDrop}
-	ondragover={(e) => e.preventDefault()}
 	role="application"
+	ondrop={handleDrop}
 	onwheel={handleMouseWheel}
+	ondragover={(e) => e.preventDefault()}
+	class="relative h-full overflow-hidden select-none"
 >
 	<Resizable.PaneGroup direction="horizontal">
-		<Resizable.Pane class="w-96 h-full border-r" defaultSize={30}>
+		<Resizable.Pane class="h-full border-r" defaultSize={25}>
 			<div class="size-full">Layers</div>
 		</Resizable.Pane>
 
 		<Resizable.Handle withHandle class="bg-transparent" />
 
-		<Resizable.Pane defaultSize={70}>
+		<Resizable.Pane>
 			<div class="relative size-full py-2" bind:clientWidth={timelineState.viewportWidth}>
 				<!-- Playhead -->
 				<Playhead />

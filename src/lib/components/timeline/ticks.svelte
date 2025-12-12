@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { getEditorState } from "$lib/editor/context.svelte";
-	import { TICK_PADDING } from "./contants";
+	import { TICK_PADDING } from "./constants";
 	import { getTimelineState } from "./timeline-state.svelte";
 
 	const ctx = getEditorState();
@@ -60,7 +60,7 @@
 		if (!rect) return 0;
 
 		const rawTime =
-			(localX - rect.left - TICK_PADDING + timelineState._scrollLeft) / timelineState.pps;
+			(localX - rect.left - TICK_PADDING + timelineState.scrollLeft) / timelineState.pps;
 		return Math.max(0, Math.min(rawTime, ctx.comp.duration));
 	}
 

@@ -1,7 +1,7 @@
 import { Composition } from "$lib/editor/composition";
 import type { BaseLayer } from "$lib/editor/layers";
 import { getContext, setContext } from "svelte";
-import { TARGET_TICK_WIDTH, TICK_INTERVALS, TICK_PADDING } from "./contants";
+import { TARGET_TICK_WIDTH, TICK_INTERVALS, TICK_PADDING } from "./constants";
 
 interface TimelineStateOptions {
 	comp: Composition;
@@ -74,7 +74,7 @@ class TimelineState {
 	}
 
 	set scrollLeft(scroll: number) {
-		this._scrollLeft = Math.min(scroll, this._maxScrollLeft);
+		this._scrollLeft = Math.min(Math.max(scroll, 0), this._maxScrollLeft);
 	}
 
 	get scrollLeft() {
