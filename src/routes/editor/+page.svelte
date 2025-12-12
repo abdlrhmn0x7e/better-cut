@@ -4,7 +4,6 @@
 	import { setEditorState } from "$lib/editor/context.svelte";
 
 	import { Toolbar } from "$lib/components/toolbar";
-	import { Card, CardContent } from "$lib/components/ui/card";
 	import * as Resizable from "$lib/components/ui/resizable/index.js";
 
 	import VideoPreview from "$lib/components/video-preview.svelte";
@@ -36,11 +35,7 @@
 
 		<Resizable.PaneGroup direction="vertical" onLayoutChange={handlePreviewResize}>
 			<Resizable.Pane defaultSize={50}>
-				<Resizable.PaneGroup
-					class="p-2"
-					direction="horizontal"
-					onLayoutChange={handlePreviewResize}
-				>
+				<Resizable.PaneGroup class="" direction="horizontal" onLayoutChange={handlePreviewResize}>
 					<Resizable.Pane class="pr-4" defaultSize={30}>
 						<ProjectPanel />
 					</Resizable.Pane>
@@ -54,9 +49,7 @@
 					<Resizable.Handle withHandle class="bg-transparent" />
 
 					<Resizable.Pane class="pl-4" defaultSize={20}>
-						<Card class="size-full">
-							<CardContent class="size-full">Something else idk</CardContent>
-						</Card>
+						<div class="size-full">Layer/Effect Options</div>
 					</Resizable.Pane>
 				</Resizable.PaneGroup>
 			</Resizable.Pane>

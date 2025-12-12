@@ -51,7 +51,7 @@
 		<Resizable.Handle withHandle class="bg-transparent" />
 
 		<Resizable.Pane defaultSize={70}>
-			<div class="relative size-full" bind:clientWidth={timelineState.viewportWidth}>
+			<div class="relative size-full py-2" bind:clientWidth={timelineState.viewportWidth}>
 				<!-- Playhead -->
 				<Playhead />
 

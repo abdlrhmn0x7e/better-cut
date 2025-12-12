@@ -74,7 +74,9 @@
 		if (!isDragging) return;
 
 		if (!ctx.comp) return;
-		const time = (e.x - timelineState.layersPanelWidth - TICK_PADDING) / timelineState.pps;
+		const time =
+			(e.x - timelineState.layersPanelWidth - TICK_PADDING + timelineState.scrollLeft) /
+			timelineState.pps;
 		ctx.comp.setCurrentTimestamp(time);
 	}
 
@@ -89,8 +91,6 @@
 		const normalizedDeltaY = e.deltaY / 4;
 		timelineState.scrollLeft = Math.max(normalizedDeltaY + timelineState.scrollLeft, 0);
 	}
-
-	$inspect("ticks", timelineState.mainTicks);
 </script>
 
 <div

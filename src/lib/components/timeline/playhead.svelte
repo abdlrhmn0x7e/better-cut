@@ -9,7 +9,9 @@
 
 <div
 	class="focus:select-none absolute bottom-0 top-10 w-fit z-50"
-	style:left="{(ctx.comp?.currentTimestamp ?? 0) * timelineState.pps + TICK_PADDING}px"
+	style:left="{(ctx.comp?.currentTimestamp ?? 0) * timelineState.pps +
+		TICK_PADDING -
+		timelineState.scrollLeft}px"
 	draggable="false"
 >
 	<div class="w-px h-full bg-primary absolute top-1 left-1/2 -translate-x-1/2"></div>

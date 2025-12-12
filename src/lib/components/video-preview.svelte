@@ -6,8 +6,6 @@
 	import type { Action } from "svelte/action";
 	import { getEditorState } from "$lib/editor/context.svelte";
 
-	import { Card, CardContent, CardFooter } from "$lib/components/ui/card";
-
 	let {
 		action,
 		class: classNames,
@@ -27,14 +25,14 @@
 	}
 </script>
 
-<Card class={cn("size-full flex flex-col gap-2 p-2", classNames)} {...props}>
-	<CardContent class="flex-1 size-full overflow-hidden">
+<div class={cn("size-full flex flex-col gap-2 p-2 border-x", classNames)} {...props}>
+	<div class="flex-1 size-full overflow-hidden py-2">
 		<div class="size-full flex-1 flex items-center justify-center">
 			<canvas use:action class="border bg-background"></canvas>
 		</div>
-	</CardContent>
+	</div>
 
-	<CardFooter class="shrink-0 justify-end flex-wrap gap-2">
+	<div class="shrink-0 flex justify-end flex-wrap gap-2">
 		<Button onclick={handlePlay} variant="ghost" size="icon-sm">
 			<PlayIcon />
 		</Button>
@@ -42,5 +40,5 @@
 		<Button onclick={handlePause} variant="ghost" size="icon-sm">
 			<PauseIcon />
 		</Button>
-	</CardFooter>
-</Card>
+	</div>
+</div>
