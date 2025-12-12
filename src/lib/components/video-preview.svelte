@@ -15,15 +15,34 @@
 	const ctx = getEditorState();
 
 	function handlePlay() {
-		if (!ctx.comp) throw new Error("No initialized composition");
 		void ctx.comp.play();
 	}
 
 	function handlePause() {
-		if (!ctx.comp) throw new Error("No initialized composition");
 		void ctx.comp.pause();
 	}
+
+	function handleToggle() {
+		if (ctx.comp.playing) void ctx.comp.pause();
+		else void ctx.comp.play();
+	}
+
+	function handleKeydown(
+		e: KeyboardEvent & {
+			currentTarget: EventTarget & Window;
+		}
+	) {
+		const key = e.key;
+		switch (key) {
+			case " ": {
+				handleToggle();
+				break;
+			}
+		}
+	}
 </script>
+
+<svelte:window onkeydown={handleKeydown} />
 
 <div class={cn("size-full flex flex-col gap-2 p-2 border-x", classNames)} {...props}>
 	<div class="flex-1 size-full overflow-hidden py-2">
@@ -33,11 +52,11 @@
 	</div>
 
 	<div class="shrink-0 flex justify-end flex-wrap gap-2">
-		<Button onclick={handlePlay} variant="ghost" size="icon-sm">
+		<Button onclick={handlePlay} disabled={ctx.comp.playing} variant="ghost" size="icon-sm">
 			<PlayIcon />
 		</Button>
 
-		<Button onclick={handlePause} variant="ghost" size="icon-sm">
+		<Button onclick={handlePause} disabled={!ctx.comp.playing} variant="ghost" size="icon-sm">
 			<PauseIcon />
 		</Button>
 	</div>

@@ -43,10 +43,19 @@
 		}
 	) {
 		if (!ctx.comp) return;
-		if (!e.shiftKey) return;
+		if (e.shiftKey) {
+			timelineState.scrollLeft = Math.max(e.deltaY + timelineState.scrollLeft, 0);
+		}
 
-		const normalizedDeltaY = e.deltaY;
-		timelineState.scrollLeft = Math.max(normalizedDeltaY + timelineState.scrollLeft, 0);
+		if (e.ctrlKey) {
+			e.preventDefault();
+			const step = 0.1;
+			const signedStep = step * (Math.abs(e.deltaY) / e.deltaY);
+			const newZoom = parseFloat((signedStep + timelineState.zoomFactor).toFixed(2));
+
+			console.log("new zoom", newZoom, "old zoom", timelineState.zoomFactor);
+			timelineState.zoomFactor = Math.min(Math.max(newZoom, 1), 4);
+		}
 	}
 </script>
 
@@ -72,7 +81,7 @@
 				<!-- Zoom -->
 				<div class="w-fit ml-auto flex items-center gap-2">
 					<span>Zoom {timelineState.zoomFactor}x</span>
-					<input type="range" bind:value={timelineState.zoomFactor} min="1" max="3" step="0.1" />
+					<input type="range" bind:value={timelineState.zoomFactor} min="1" max="4" step="0.1" />
 				</div>
 
 				<!-- Ticks -->
