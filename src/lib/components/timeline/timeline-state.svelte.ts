@@ -1,5 +1,4 @@
 import { Composition } from "$lib/editor/composition";
-import type { BaseLayer } from "$lib/editor/layers";
 import { getContext, setContext } from "svelte";
 import { TARGET_TICK_WIDTH, TICK_INTERVALS, TICK_PADDING } from "./constants";
 
@@ -7,59 +6,52 @@ interface TimelineStateOptions {
 	comp: Composition;
 }
 
-interface Tick {
-	time: number;
-	pos: number;
-}
-
 class TimelineState {
 	private _comp: Composition;
 	public zoomFactor = $state(1);
-
 	public viewportWidth = $state(0);
-
-	public layers: BaseLayer[];
-	public pps: number; // pixels per second
-
-	public tickInterval: number;
-	public startTickTime: number;
-	public endTickTime: number;
-
-	public mainTicks: Tick[];
-	public subTicks: Tick[];
-
 	private _scrollLeft = $state(0);
-	private _maxScrollLeft: number;
 
 	constructor({ comp }: TimelineStateOptions) {
 		this._comp = comp;
-		this.layers = $derived(this._comp.layers);
-		this.pps = $derived((this.viewportWidth / (this._comp.duration ?? 1)) * this.zoomFactor);
+	}
 
-		this.tickInterval = $derived.by(() => {
-			for (const int of TICK_INTERVALS) {
-				if (int * this.pps >= TARGET_TICK_WIDTH) return int;
-			}
+	get layers() {
+		return this._comp.layers;
+	}
 
-			return TICK_INTERVALS.at(-1)!;
-		});
+	get pps() {
+		return (this.viewportWidth / (this._comp.duration ?? 1)) * this.zoomFactor;
+	}
 
-		this.startTickTime = $derived.by(() => {
-			const visibleStartTime = this._scrollLeft / this.pps;
-			return Math.max(0, Math.floor(visibleStartTime / this.tickInterval) * this.tickInterval);
-		});
-		this.endTickTime = $derived.by(() => {
-			const visibleEndTime = (this._scrollLeft + this.viewportWidth) / this.pps;
-			return Math.ceil(visibleEndTime / this.tickInterval) * this.tickInterval;
-		});
+	get tickInterval() {
+		for (const int of TICK_INTERVALS) {
+			if (int * this.pps >= TARGET_TICK_WIDTH) return int;
+		}
+		return TICK_INTERVALS.at(-1)!;
+	}
 
-		this.mainTicks = $derived.by(() => this._getTicks(this.tickInterval));
-		this.subTicks = $derived.by(() => this._getTicks(this.tickInterval / 4));
+	get startTickTime() {
+		const visibleStartTime = this._scrollLeft / this.pps;
+		return Math.max(0, Math.floor(visibleStartTime / this.tickInterval) * this.tickInterval);
+	}
 
-		this._maxScrollLeft = $derived.by(() => {
-			const timelineWidth = this._comp.duration * this.pps;
-			return Math.max(0, timelineWidth - this.viewportWidth + TICK_PADDING);
-		});
+	get endTickTime() {
+		const visibleEndTime = (this._scrollLeft + this.viewportWidth) / this.pps;
+		return Math.ceil(visibleEndTime / this.tickInterval) * this.tickInterval;
+	}
+
+	get mainTicks() {
+		return this._getTicks(this.tickInterval);
+	}
+
+	get subTicks() {
+		return this._getTicks(this.tickInterval / 4);
+	}
+
+	private get _maxScrollLeft() {
+		const timelineWidth = this._comp.duration * this.pps;
+		return Math.max(0, timelineWidth - this.viewportWidth + TICK_PADDING);
 	}
 
 	private _getTicks(interval: number) {
