@@ -1,7 +1,6 @@
 <script lang="ts">
 	import type { Action } from "svelte/action";
 
-	import { Composition } from "$lib/editor/composition";
 	import { setEditorState } from "$lib/editor/context.svelte";
 
 	import { Toolbar } from "$lib/components/toolbar";
@@ -17,7 +16,7 @@
 
 	// this is here because I wanted all initializations to live in the root page
 	const previewAction: Action<HTMLCanvasElement> = (node) => {
-		ctx.comp = new Composition({ container: node });
+		ctx.comp.canvas = node;
 	};
 
 	// adjust the size of the preview on every resize
@@ -32,14 +31,10 @@
 </script>
 
 <main class="h-screen flex flex-col">
-	{#if supportsWebCodecs()}
+	{#if supportsWebCodecs() && ctx.comp}
 		<Toolbar />
 
-		<Resizable.PaneGroup
-			direction="vertical"
-			class="rounded-lg border"
-			onLayoutChange={handlePreviewResize}
-		>
+		<Resizable.PaneGroup direction="vertical" onLayoutChange={handlePreviewResize}>
 			<Resizable.Pane defaultSize={50}>
 				<Resizable.PaneGroup
 					class="p-2"

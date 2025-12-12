@@ -2,7 +2,6 @@ import { assert } from "$lib/utils/misc";
 import { BaseLayer, VideoLayer, type BaseLayerOptions } from "../layers";
 
 export interface CompositionOptions {
-	container: HTMLCanvasElement;
 	aspectRatio?: number; // TODO: User provided later on
 	scale?: {
 		x: number;
@@ -25,32 +24,31 @@ export class Composition {
 
 	public aspectRatio: number;
 	public layers: Array<BaseLayer>;
-	private _canvas: HTMLCanvasElement;
-	private _canvasCtx: CanvasRenderingContext2D;
+	private _canvas: HTMLCanvasElement | null;
+	private _canvasCtx: CanvasRenderingContext2D | null;
 	private _cache = new Map<number, OffscreenCanvas>();
 
-	constructor({ container, aspectRatio = 16 / 9, layers }: CompositionOptions) {
+	constructor({ aspectRatio = 16 / 9, layers }: CompositionOptions = {}) {
 		this.fps = 24;
 		this.duration = 60;
 		this.aspectRatio = aspectRatio;
 
 		this._audioCtx = new AudioContext();
 
-		this._canvas = container;
-		this._canvas.width = 1920;
-		this._canvas.height = 1080;
-
-		const canvasCtx = this._canvas.getContext("2d");
-		if (!canvasCtx) throw new Error("Your browser doesn't support 2d context canvas");
-		this._canvasCtx = canvasCtx;
-
-		// initilaiz a stage
-		this.rescale();
+		this._canvas = null;
+		this._canvasCtx = null;
 
 		// Reactive state
 		this.layers = $state(layers ?? []);
 		this.currentTimestamp = $state(0);
 		this.playing = $state(false);
+	}
+
+	setCurrentTimestamp(time: number) {
+		if (time < 0 || time > this.duration) return;
+
+		this.currentTimestamp = time;
+		this.seek(time);
 	}
 
 	async addLayer({ type, src }: BaseLayerOptions) {
@@ -90,6 +88,9 @@ export class Composition {
 	}
 
 	private _tick({ anchor }: { anchor: number }) {
+		assert(this._canvas);
+		assert(this._canvasCtx);
+
 		// if we're not playing return
 		if (!this.playing) return;
 
@@ -116,6 +117,8 @@ export class Composition {
 
 	draw(layer: VideoLayer) {
 		assert(layer.canvas);
+		assert(this._canvasCtx);
+
 		this._canvasCtx.drawImage(
 			layer.canvas,
 			0,
@@ -140,6 +143,9 @@ export class Composition {
 	}
 
 	async seek(time: number) {
+		assert(this._canvas);
+		assert(this._canvasCtx);
+
 		if (this._isSeeking) return;
 		if (time < 0 || time > this.duration) return;
 
@@ -163,7 +169,6 @@ export class Composition {
 		this._canvasCtx.clearRect(0, 0, this._canvas.width, this._canvas.height);
 		for (const layer of this.layers) {
 			if (layer instanceof VideoLayer && layer.canvas) {
-				console.log("drawing layer");
 				this.draw(layer); // ensure draw uses latest frame
 			}
 		}
@@ -180,6 +185,8 @@ export class Composition {
 	}
 
 	rescale() {
+		assert(this._canvas);
+
 		let width = this._canvas.parentElement?.clientWidth ?? 0;
 		let height = this._canvas.parentElement?.clientHeight ?? 0;
 
@@ -195,5 +202,20 @@ export class Composition {
 
 		this._canvas.width = width;
 		this._canvas.height = height;
+	}
+
+	set canvas(canvas: HTMLCanvasElement) {
+		this._canvas = canvas;
+
+		this._canvas.width = 1920;
+		this._canvas.height = 1080;
+
+		const canvasCtx = this._canvas.getContext("2d");
+		if (!canvasCtx) throw new Error("Your browser doesn't support 2d context canvas");
+
+		this._canvasCtx = canvasCtx;
+
+		// initilaiz a stage
+		this.rescale();
 	}
 }

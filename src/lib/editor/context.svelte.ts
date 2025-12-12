@@ -1,15 +1,15 @@
 import { getContext, setContext } from "svelte";
-import type { Composition } from "./composition/composition.svelte";
+import { Composition } from "./composition/composition.svelte";
 import { SvelteMap } from "svelte/reactivity";
 
 const DEFAULT_KEY = "$_editor_context";
 
 type EditorContext = {
-	comp: Composition | null;
+	comp: Composition;
 	files: SvelteMap<string, File>;
 };
 
-let comp: EditorContext["comp"] = $state(null);
+let comp: EditorContext["comp"] = $state(new Composition());
 let files: EditorContext["files"] = new SvelteMap();
 
 // Single shared context object, with comp wired to the rune

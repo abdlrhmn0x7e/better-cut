@@ -4,7 +4,7 @@
 	import * as DropdownMenu from "$lib/components/ui/dropdown-menu/index.js";
 </script>
 
-<div class="w-full sm:flex flex-wrap hidden px-2 py-1">
+<div class="w-full sm:flex flex-wrap hidden px-3 p-1 border-b">
 	<DropdownMenu.Root>
 		<div class="flex gap-3 items-center">
 			<p class="text-sm font-medium">Better <span class="text-blue-300">Cut</span></p>
