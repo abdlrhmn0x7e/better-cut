@@ -10,16 +10,15 @@
 	let isDragging = $state(false);
 
 	function renderTime(time: number) {
-		const hours = Math.floor(time / 60 / 60);
-		const mins = Math.floor(time / 60);
-		const secs = time % 60;
-		let result = "";
+		const hours = Math.floor(time / 3600);
+		const mins = Math.floor((time % 3600) / 60);
+		const secs = Math.floor(time % 60);
 
-		if (hours) result += `${hours}:`;
-		if (mins) result += `${mins}:`;
-		result += `${secs}`;
+		const pad = (n: number) => n.toString().padStart(2, "0");
 
-		return result;
+		if (hours > 0) return `${hours}:${pad(mins)}:${pad(secs)}`;
+		if (mins > 0) return `${mins}:${pad(secs)}`;
+		return `${secs}`;
 	}
 
 	function handleTimelineKeydown(
@@ -30,23 +29,39 @@
 		if (!ctx.comp) return;
 
 		const key = e.key;
+		const step = 1 / ctx.comp.fps;
 		switch (key) {
 			case "ArrowRight": {
-				ctx.comp.setCurrentTimestamp(ctx.comp.currentTimestamp + 1);
+				ctx.comp.setCurrentTimestamp(ctx.comp.currentTimestamp + step);
 				break;
 			}
 
 			case "ArrowLeft": {
 				if (ctx.comp.currentTimestamp <= 0) break;
 
-				ctx.comp.setCurrentTimestamp(ctx.comp.currentTimestamp - 1);
+				ctx.comp.setCurrentTimestamp(ctx.comp.currentTimestamp - step);
 				break;
 			}
 		}
 	}
 
-	function handlePointerUp() {
+	function handlePointerUp(
+		e: PointerEvent & {
+			currentTarget: EventTarget & HTMLDivElement;
+		}
+	) {
+		ticksEl.releasePointerCapture(e.pointerId);
+
 		isDragging = false;
+	}
+
+	function getTime(localX: number) {
+		const rect = ticksEl.getClientRects().item(0);
+		if (!rect) return 0;
+
+		const rawTime =
+			(localX - rect.left - TICK_PADDING + timelineState.scrollLeft) / timelineState.pps;
+		return Math.max(0, Math.min(rawTime, ctx.comp.duration));
 	}
 
 	function handlePointerDown(
@@ -54,14 +69,11 @@
 			currentTarget: EventTarget & HTMLDivElement;
 		}
 	) {
-		if (!ctx.comp || !ticksEl) return;
-
 		ticksEl.setPointerCapture(e.pointerId); // makes sure the pointer up event is fired
 
-		const time =
-			(e.x - timelineState.layersPanelWidth - TICK_PADDING + timelineState.scrollLeft) /
-			timelineState.pps;
-		ctx.comp.setCurrentTimestamp(time);
+		if (!ctx.comp || !ticksEl) return;
+
+		ctx.comp.setCurrentTimestamp(getTime(e.clientX));
 
 		isDragging = true;
 	}
@@ -74,22 +86,8 @@
 		if (!isDragging) return;
 
 		if (!ctx.comp) return;
-		const time =
-			(e.x - timelineState.layersPanelWidth - TICK_PADDING + timelineState.scrollLeft) /
-			timelineState.pps;
-		ctx.comp.setCurrentTimestamp(time);
-	}
 
-	function handleMouseWheel(
-		e: WheelEvent & {
-			currentTarget: EventTarget & HTMLDivElement;
-		}
-	) {
-		if (!ctx.comp) return;
-		if (!e.shiftKey) return;
-
-		const normalizedDeltaY = e.deltaY / 4;
-		timelineState.scrollLeft = Math.max(normalizedDeltaY + timelineState.scrollLeft, 0);
+		ctx.comp.setCurrentTimestamp(getTime(e.clientX));
 	}
 </script>
 
@@ -102,7 +100,6 @@
 	onpointerdown={handlePointerDown}
 	onpointermove={handlePointerMove}
 	onkeydown={handleTimelineKeydown}
-	onwheel={handleMouseWheel}
 >
 	{#each timelineState.mainTicks as tick (`tick-${tick.time}`)}
 		<div

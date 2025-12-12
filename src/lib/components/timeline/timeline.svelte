@@ -6,6 +6,7 @@
 	import * as Resizable from "$lib/components/ui/resizable/index.js";
 	import { TICK_PADDING } from "./contants";
 	import { setTimelineState } from "./timeline-state.svelte";
+	import Scrollbar from "./scrollbar.svelte";
 
 	const ctx = getEditorState();
 
@@ -35,6 +36,18 @@
 			}
 		}
 	}
+
+	function handleMouseWheel(
+		e: WheelEvent & {
+			currentTarget: EventTarget & HTMLDivElement;
+		}
+	) {
+		if (!ctx.comp) return;
+		if (!e.shiftKey) return;
+
+		const normalizedDeltaY = e.deltaY / 4;
+		timelineState.scrollLeft = Math.max(normalizedDeltaY + timelineState.scrollLeft, 0);
+	}
 </script>
 
 <div
@@ -42,10 +55,11 @@
 	ondrop={handleDrop}
 	ondragover={(e) => e.preventDefault()}
 	role="application"
+	onwheel={handleMouseWheel}
 >
 	<Resizable.PaneGroup direction="horizontal">
 		<Resizable.Pane class="w-96 h-full bg-card border-r" defaultSize={30}>
-			<div class="size-full" bind:clientWidth={timelineState.layersPanelWidth}>Layers</div>
+			<div class="size-full">Layers</div>
 		</Resizable.Pane>
 
 		<Resizable.Handle withHandle class="bg-transparent" />
@@ -72,13 +86,16 @@
 							style:left="{layer.startOffset * timelineState.pps -
 								timelineState.scrollLeft +
 								TICK_PADDING}px"
-							style:width="{(layer.duration ?? 0) * timelineState.pps - TICK_PADDING}px"
+							style:width="{(layer.duration ?? 0) * timelineState.pps}px"
 						>
 							<VideoIcon class="size-4" />
 							<span class="capitalize">{layer.type}</span>
 						</div>
 					{/each}
 				</div>
+
+				<!-- Scrollbar -->
+				<Scrollbar />
 			</div>
 		</Resizable.Pane>
 	</Resizable.PaneGroup>

@@ -18,7 +18,6 @@ class TimelineState {
 	public zoomFactor = $state(1);
 
 	public viewportWidth = $state(0);
-	public layersPanelWidth = $state(0);
 
 	public layers: BaseLayer[];
 	public pps: number; // pixels per second
@@ -45,11 +44,11 @@ class TimelineState {
 
 		this.startTickTime = $derived.by(() => {
 			const visibleStartTime = this.scrollLeft / this.pps;
-			return Math.floor(visibleStartTime / this.tickInterval) * this.tickInterval;
+			return Math.max(0, Math.floor(visibleStartTime / this.tickInterval) * this.tickInterval);
 		});
 		this.endTickTime = $derived.by(() => {
 			const visibleEndTime = (this.scrollLeft + this.viewportWidth) / this.pps;
-			return Math.floor(visibleEndTime / this.tickInterval) * this.tickInterval;
+			return Math.ceil(visibleEndTime / this.tickInterval) * this.tickInterval;
 		});
 
 		this.mainTicks = $derived.by(() => this._getTicks(this.tickInterval));
@@ -62,7 +61,7 @@ class TimelineState {
 
 		return [...Array(length).keys()].map((i) => {
 			const time = i * interval + this.startTickTime;
-			const pos = time * this.pps - this.scrollLeft + TICK_PADDING;
+			const pos = time * this.pps + TICK_PADDING - this.scrollLeft;
 			return { time, pos };
 		});
 	}
