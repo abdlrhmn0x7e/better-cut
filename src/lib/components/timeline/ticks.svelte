@@ -60,7 +60,7 @@
 		if (!rect) return 0;
 
 		const rawTime =
-			(localX - rect.left - TICK_PADDING + timelineState.scrollLeft) / timelineState.pps;
+			(localX - rect.left - TICK_PADDING + timelineState._scrollLeft) / timelineState.pps;
 		return Math.max(0, Math.min(rawTime, ctx.comp.duration));
 	}
 

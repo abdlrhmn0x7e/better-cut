@@ -58,7 +58,7 @@
 	onwheel={handleMouseWheel}
 >
 	<Resizable.PaneGroup direction="horizontal">
-		<Resizable.Pane class="w-96 h-full bg-card border-r" defaultSize={30}>
+		<Resizable.Pane class="w-96 h-full border-r" defaultSize={30}>
 			<div class="size-full">Layers</div>
 		</Resizable.Pane>
 

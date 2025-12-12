@@ -14,7 +14,6 @@ interface Tick {
 
 class TimelineState {
 	private _comp: Composition;
-	public scrollLeft = $state(0);
 	public zoomFactor = $state(1);
 
 	public viewportWidth = $state(0);
@@ -28,6 +27,9 @@ class TimelineState {
 
 	public mainTicks: Tick[];
 	public subTicks: Tick[];
+
+	private _scrollLeft = $state(0);
+	private _maxScrollLeft: number;
 
 	constructor({ comp }: TimelineStateOptions) {
 		this._comp = comp;
@@ -43,16 +45,21 @@ class TimelineState {
 		});
 
 		this.startTickTime = $derived.by(() => {
-			const visibleStartTime = this.scrollLeft / this.pps;
+			const visibleStartTime = this._scrollLeft / this.pps;
 			return Math.max(0, Math.floor(visibleStartTime / this.tickInterval) * this.tickInterval);
 		});
 		this.endTickTime = $derived.by(() => {
-			const visibleEndTime = (this.scrollLeft + this.viewportWidth) / this.pps;
+			const visibleEndTime = (this._scrollLeft + this.viewportWidth) / this.pps;
 			return Math.ceil(visibleEndTime / this.tickInterval) * this.tickInterval;
 		});
 
 		this.mainTicks = $derived.by(() => this._getTicks(this.tickInterval));
 		this.subTicks = $derived.by(() => this._getTicks(this.tickInterval / 4));
+
+		this._maxScrollLeft = $derived.by(() => {
+			const timelineWidth = this._comp.duration * this.pps;
+			return Math.max(0, timelineWidth - this.viewportWidth + TICK_PADDING);
+		});
 	}
 
 	private _getTicks(interval: number) {
@@ -61,9 +68,17 @@ class TimelineState {
 
 		return [...Array(length).keys()].map((i) => {
 			const time = i * interval + this.startTickTime;
-			const pos = time * this.pps + TICK_PADDING - this.scrollLeft;
+			const pos = time * this.pps + TICK_PADDING - this._scrollLeft;
 			return { time, pos };
 		});
+	}
+
+	set scrollLeft(scroll: number) {
+		this._scrollLeft = Math.min(scroll, this._maxScrollLeft);
+	}
+
+	get scrollLeft() {
+		return this._scrollLeft;
 	}
 }
 
