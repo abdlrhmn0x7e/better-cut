@@ -7,9 +7,11 @@ interface TimelineStateOptions {
 }
 
 class TimelineState {
-	private _comp: Composition;
+	public selectedLayerId = $state(-1);
 	public zoomFactor = $state(1);
 	public viewportWidth = $state(0);
+
+	private _comp: Composition;
 	private _scrollLeft = $state(0);
 
 	constructor({ comp }: TimelineStateOptions) {
