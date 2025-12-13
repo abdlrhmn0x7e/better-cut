@@ -16,9 +16,9 @@
 
 		const pad = (n: number) => n.toString().padStart(2, "0");
 
-		if (hours > 0) return `${hours}:${pad(mins)}:${pad(secs)}`;
-		if (mins > 0) return `${mins}:${pad(secs)}`;
-		return `${secs}`;
+		if (hours > 0) return `${hours}h:${pad(mins)}m:${pad(secs)}s`;
+		if (mins > 0) return `${mins}m:${pad(secs)}s`;
+		return `${secs}s`;
 	}
 
 	function handleTimelineKeydown(
@@ -95,28 +95,22 @@
 	bind:this={ticksEl}
 	role="button"
 	tabindex="0"
-	class="timeline focus:outline-none relative overflow-hidden h-9"
+	class="timeline focus:outline-none relative overflow-hidden h-8"
 	onpointerup={handlePointerUp}
 	onpointerdown={handlePointerDown}
 	onpointermove={handlePointerMove}
 	onkeydown={handleTimelineKeydown}
 >
-	{#each timelineState.mainTicks as tick (`tick-${tick.time}`)}
+	{#each timelineState.mainTicks as tick, index (`tick-${tick.time}`)}
 		<div
-			class="pointer-events-none absolute top-0 flex flex-col items-center gap-1 z-10 bg-background w-px"
+			class="pointer-events-none absolute bottom-0 flex flex-col items-center gap-1 z-10 bg-background w-px"
 			style:left="{tick.pos}px"
 		>
-			<span class="text-xs font-semibold">{renderTime(tick.time)}</span>
-			<div class="h-3 w-px bg-muted"></div>
-		</div>
-	{/each}
-
-	{#each timelineState.subTicks as tick (`tick-${tick.time}`)}
-		<div
-			class="pointer-events-none absolute bottom-0 flex flex-col items-center gap-1"
-			style:left="{tick.pos}px"
-		>
-			<div class="h-2 w-px bg-muted"></div>
+			<span
+				class="text-xs font-semibold text-muted-foreground {index === 0 && 'pl-3'} {index ===
+					timelineState.mainTicks.length - 1 && 'pr-12'}">{renderTime(tick.time)}</span
+			>
+			<div class="h-2 w-px bg-muted-foreground"></div>
 		</div>
 	{/each}
 </div>

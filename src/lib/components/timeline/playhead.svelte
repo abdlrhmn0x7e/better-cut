@@ -8,7 +8,7 @@
 </script>
 
 <div
-	class="focus:select-none absolute bottom-0 top-10 w-fit z-50"
+	class="focus:select-none absolute bottom-0 top-4 w-fit z-50"
 	style:left="{(ctx.comp?.currentTimestamp ?? 0) * timelineState.pps +
 		TICK_PADDING -
 		timelineState.scrollLeft}px"

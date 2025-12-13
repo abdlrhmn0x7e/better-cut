@@ -1,12 +1,12 @@
 <script lang="ts">
 	import { getEditorState } from "$lib/editor/context.svelte";
-	import { VideoIcon } from "@lucide/svelte";
 	import Playhead from "./playhead.svelte";
 	import Ticks from "./ticks.svelte";
 	import * as Resizable from "$lib/components/ui/resizable/index.js";
-	import { TICK_PADDING } from "./constants";
 	import { setTimelineState } from "./timeline-state.svelte";
 	import Scrollbar from "./scrollbar.svelte";
+	import Layer from "./layer.svelte";
+	import LayersPanel from "./layers-panel.svelte";
 
 	const ctx = getEditorState();
 
@@ -49,11 +49,10 @@
 
 		if (e.ctrlKey) {
 			e.preventDefault();
-			const step = 0.1;
-			const signedStep = step * (Math.abs(e.deltaY) / e.deltaY);
+			const step = 0.5;
+			const signedStep = step * ((e.deltaY * -1) / Math.abs(e.deltaY)); // invert the direction of scrolling
 			const newZoom = parseFloat((signedStep + timelineState.zoomFactor).toFixed(2));
 
-			console.log("new zoom", newZoom, "old zoom", timelineState.zoomFactor);
 			timelineState.zoomFactor = Math.min(Math.max(newZoom, 1), 4);
 		}
 	}
@@ -64,42 +63,30 @@
 	ondrop={handleDrop}
 	onwheel={handleMouseWheel}
 	ondragover={(e) => e.preventDefault()}
-	class="relative h-full overflow-hidden select-none"
+	class="relative h-full overflow-hidden select-none flex flex-col divide-y"
 >
 	<Resizable.PaneGroup direction="horizontal">
 		<Resizable.Pane class="h-full border-r" defaultSize={25}>
-			<div class="size-full">Layers</div>
+			<LayersPanel />
 		</Resizable.Pane>
 
 		<Resizable.Handle withHandle class="bg-transparent" />
 
 		<Resizable.Pane>
-			<div class="relative size-full py-2" bind:clientWidth={timelineState.viewportWidth}>
+			<div
+				class="relative size-full flex flex-col divide-y"
+				bind:clientWidth={timelineState.viewportWidth}
+			>
 				<!-- Playhead -->
 				<Playhead />
-
-				<!-- Zoom -->
-				<div class="w-fit ml-auto flex items-center gap-2">
-					<span>Zoom {timelineState.zoomFactor}x</span>
-					<input type="range" bind:value={timelineState.zoomFactor} min="1" max="4" step="0.1" />
-				</div>
 
 				<!-- Ticks -->
 				<Ticks />
 
 				<!-- Layers -->
-				<div class="mt-4">
+				<div class="flex-1 bg-card">
 					{#each timelineState.layers as layer (layer.id)}
-						<div
-							class="absolute rounded-sm bg-blue-500 px-2 py-1 flex items-center gap-2"
-							style:left="{layer.startOffset * timelineState.pps -
-								timelineState.scrollLeft +
-								TICK_PADDING}px"
-							style:width="{(layer.duration ?? 0) * timelineState.pps}px"
-						>
-							<VideoIcon class="size-4" />
-							<span class="capitalize">{layer.type}</span>
-						</div>
+						<Layer {layer} />
 					{/each}
 				</div>
 
@@ -108,4 +95,10 @@
 			</div>
 		</Resizable.Pane>
 	</Resizable.PaneGroup>
+
+	<!-- Zoom -->
+	<div class="p-0.5 w-fit ml-auto flex items-center gap-2">
+		<span>Zoom {timelineState.zoomFactor}x</span>
+		<input type="range" bind:value={timelineState.zoomFactor} min="1" max="4" step="0.1" />
+	</div>
 </div>

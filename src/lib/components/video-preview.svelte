@@ -44,7 +44,7 @@
 
 <svelte:window onkeydown={handleKeydown} />
 
-<div class={cn("size-full flex flex-col gap-2 p-2 border-x", classNames)} {...props}>
+<div class={cn("bg-card size-full flex flex-col gap-2 p-2 border-x", classNames)} {...props}>
 	<div class="flex-1 size-full overflow-hidden py-2">
 		<div class="size-full flex-1 flex items-center justify-center">
 			<canvas use:action class="border bg-background"></canvas>

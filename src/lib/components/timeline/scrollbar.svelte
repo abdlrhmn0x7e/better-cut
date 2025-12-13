@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { getEditorState } from "$lib/editor/context.svelte";
-	import { GripVerticalIcon, MoveHorizontalIcon } from "@lucide/svelte";
 	import { getTimelineState } from "./timeline-state.svelte";
 
 	const editorState = getEditorState();
@@ -8,6 +7,7 @@
 	let trackWidth = $state(0);
 	let trackEl: HTMLDivElement;
 	let isDragging = $state(false);
+	let lastPointerX = $state(0);
 
 	const totalTimelineWidth = $derived(editorState.comp.duration * timelineState.pps);
 	const thumbWidth = $derived(
@@ -36,11 +36,16 @@
 	) {
 		if (!isDragging) return;
 
-		const rect = trackEl.getClientRects().item(0);
-		if (!rect) return;
+		const deltaX = e.clientX - lastPointerX;
+		lastPointerX = e.clientX;
 
-		const thumbMiddle = rect.left + rect.left * 0.5;
-		timelineState.scrollLeft = e.clientX - thumbMiddle + timelineState.scrollLeft;
+		// Convert thumb movement to scroll movement
+		// The ratio of scrollable content to scrollbar track determines the scale
+		const scrollableWidth = totalTimelineWidth - timelineState.viewportWidth;
+		const availableTrackSpace = trackWidth - thumbWidth;
+		const scrollScale = availableTrackSpace > 0 ? scrollableWidth / availableTrackSpace : 1;
+
+		timelineState.scrollLeft = timelineState.scrollLeft + deltaX * scrollScale;
 	}
 
 	function handlePointerDown(
@@ -50,6 +55,7 @@
 	) {
 		trackEl.setPointerCapture(e.pointerId);
 		isDragging = true;
+		lastPointerX = e.clientX;
 	}
 </script>
 
