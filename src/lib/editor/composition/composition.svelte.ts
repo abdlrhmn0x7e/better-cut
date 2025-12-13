@@ -1,4 +1,4 @@
-import { assert } from "$lib/utils/misc";
+import { assert } from "$lib/utils/assert";
 import { BaseLayer, VideoLayer, type BaseLayerOptions } from "../layers";
 
 export interface CompositionOptions {
@@ -26,7 +26,6 @@ export class Composition {
 	public layers: Array<BaseLayer>;
 	private _canvas: HTMLCanvasElement | null;
 	private _canvasCtx: CanvasRenderingContext2D | null;
-	private _cache = new Map<number, OffscreenCanvas>();
 
 	constructor({ aspectRatio = 16 / 9, layers }: CompositionOptions = {}) {
 		this.fps = 24;

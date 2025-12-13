@@ -4,9 +4,9 @@ import {
 	type WrappedAudioBuffer,
 	type WrappedCanvas
 } from "mediabunny";
-import { probeVideo, type VideoProbe } from "../media/mediabunny.ts";
+import { probeVideo, type VideoProbe } from "../../media/probe.ts";
 import { BaseLayer, type BaseLayerOptions, type TimeOptions } from "./base.ts";
-import { assert } from "$lib/utils/misc";
+import { assert } from "$lib/utils/assert";
 
 type VideoLayerOptions = Omit<BaseLayerOptions, "type"> & {
 	scale: number;

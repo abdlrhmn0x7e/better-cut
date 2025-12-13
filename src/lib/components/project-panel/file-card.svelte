@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { getFileThumbnail } from "$lib/utils/get-file-thumbnail";
+	import { getFileThumbnail } from "$lib/media/thumbnail";
 	import { ImageIcon, VideoIcon, Volume2Icon } from "@lucide/svelte";
 	import Badge from "../ui/badge/badge.svelte";
 

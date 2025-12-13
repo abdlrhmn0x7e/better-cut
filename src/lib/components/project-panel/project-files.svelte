@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { getEditorState } from "$lib/editor/context.svelte";
+	import { getEditorState } from "$lib/editor/editor-state.svelte";
 	import FileCard from "./file-card.svelte";
 
 	import * as Empty from "$lib/components/ui/empty/index.js";

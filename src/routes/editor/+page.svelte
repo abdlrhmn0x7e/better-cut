@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { Action } from "svelte/action";
 
-	import { setEditorState } from "$lib/editor/context.svelte";
+	import { setEditorState } from "$lib/editor/editor-state.svelte";
 
 	import { Toolbar } from "$lib/components/toolbar";
 	import * as Resizable from "$lib/components/ui/resizable/index.js";

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { getEditorState } from "$lib/editor/context.svelte";
+	import { getEditorState } from "$lib/editor/editor-state.svelte";
 	import Playhead from "./playhead.svelte";
 	import Ticks from "./ticks.svelte";
 	import * as Resizable from "$lib/components/ui/resizable/index.js";

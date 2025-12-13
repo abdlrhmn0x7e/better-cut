@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { getEditorState } from "$lib/editor/context.svelte";
+	import { getEditorState } from "$lib/editor/editor-state.svelte";
 	import { FilePlusIcon } from "@lucide/svelte";
 	import type { WithElementRef } from "bits-ui";
 	import { onMount } from "svelte";

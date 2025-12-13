@@ -4,7 +4,7 @@
 	import Button from "./ui/button/button.svelte";
 	import { PauseIcon, PlayIcon } from "@lucide/svelte";
 	import type { Action } from "svelte/action";
-	import { getEditorState } from "$lib/editor/context.svelte";
+	import { getEditorState } from "$lib/editor/editor-state.svelte";
 
 	let {
 		action,

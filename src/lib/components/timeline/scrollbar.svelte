@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { getEditorState } from "$lib/editor/context.svelte";
+	import { getEditorState } from "$lib/editor/editor-state.svelte";
 	import { getTimelineState } from "./timeline-state.svelte";
 
 	const editorState = getEditorState();
