@@ -1,36 +1,39 @@
+import { FileManager } from "$lib/media/file-manager.svelte";
 import { assert } from "$lib/utils/assert";
-import { BaseLayer, VideoLayer, type BaseLayerOptions } from "../layers";
-
-export interface CompositionOptions {
-	aspectRatio?: number; // TODO: User provided later on
-	scale?: {
-		x: number;
-		y: number;
-	};
-	layers?: Array<BaseLayer>;
-}
+import { BaseLayer, VideoLayer } from "../layers";
+import type { BaseLayerOptions } from "../layers/types";
+import type { CompositionOptions, SerializedComposition } from "./types";
 
 export class Composition {
+	public id: string;
 	public fps: number;
-	public currentTimestamp: number;
-	public playing: boolean;
-	private _isSeeking = false;
-
-	public scale = 0.75;
-
-	private _audioCtx: AudioContext;
-
+	public name: string;
 	public duration: number;
-
+	public playing: boolean;
 	public aspectRatio: number;
-	public layers: Array<BaseLayer>;
+	public currentTimestamp: number;
+	public layers: Array<BaseLayer> = $state([]);
+
+	private _fileManager: FileManager;
+	private _isSeeking = false;
+	private _audioCtx: AudioContext;
 	private _canvas: HTMLCanvasElement | null;
 	private _canvasCtx: CanvasRenderingContext2D | null;
 
-	constructor({ aspectRatio = 16 / 9, layers }: CompositionOptions = {}) {
-		this.fps = 24;
-		this.duration = 60;
+	constructor({
+		aspectRatio = 16 / 9,
+		id,
+		duration,
+		fps,
+		name,
+		fileManager
+	}: CompositionOptions & { fileManager: FileManager }) {
+		this.id = id ?? (crypto.randomUUID() as string);
+		this.fps = fps ?? 24;
+		this.name = name ?? `comp-${this.id}`;
+		this.duration = duration ?? 60;
 		this.aspectRatio = aspectRatio;
+		this._fileManager = fileManager;
 
 		this._audioCtx = new AudioContext();
 
@@ -38,7 +41,6 @@ export class Composition {
 		this._canvasCtx = null;
 
 		// Reactive state
-		this.layers = $state(layers ?? []);
 		this.currentTimestamp = $state(0);
 		this.playing = $state(false);
 	}
@@ -50,14 +52,21 @@ export class Composition {
 		this.seek(time);
 	}
 
-	async addLayer({ type, src }: BaseLayerOptions) {
+	async addLayer(layerOptions: BaseLayerOptions & { fileId?: string }) {
+		const { type, fileId, ...options } = layerOptions;
+
 		switch (type) {
 			case "video": {
-				const layer = await VideoLayer.init({
-					src,
+				assert(fileId);
+
+				const src = await this._fileManager.retrieve(fileId);
+				if (!src) throw new Error(`File with id ${fileId} not found`);
+
+				const layer = await VideoLayer.init(src, {
 					targetFps: this.fps,
-					scale: this.scale - 0.35,
-					audioCtx: this._audioCtx
+					audioCtx: this._audioCtx,
+					fileId,
+					...options
 				});
 				this.layers.push(layer);
 				break;
@@ -118,13 +127,7 @@ export class Composition {
 		assert(layer.canvas);
 		assert(this._canvasCtx);
 
-		this._canvasCtx.drawImage(
-			layer.canvas,
-			0,
-			0,
-			layer.canvas.width * this.scale,
-			layer.canvas.height * this.scale
-		);
+		this._canvasCtx.drawImage(layer.canvas, 0, 0, layer.canvas.width, layer.canvas.height);
 	}
 
 	async pause() {
@@ -216,5 +219,25 @@ export class Composition {
 
 		// initilaiz a stage
 		this.rescale();
+	}
+
+	toJSON(): SerializedComposition {
+		return {
+			id: this.id,
+			fps: this.fps,
+			name: this.name,
+			duration: this.duration,
+			aspectRatio: this.aspectRatio,
+			layers: this.layers.map((layer) => layer.toJSON())
+		};
+	}
+
+	static async fromJSON(json: SerializedComposition, fileManager: FileManager) {
+		const { layers, ...options } = json;
+
+		const comp = new Composition({ ...options, fileManager });
+		await Promise.all(layers.map((layerOptions) => comp.addLayer(layerOptions)));
+
+		return comp;
 	}
 }

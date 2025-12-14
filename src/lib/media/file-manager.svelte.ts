@@ -63,6 +63,60 @@ export class FileManager {
 	}
 
 	/**
+	 * Stores a JSON in OPFS
+	 *
+	 * @param id - The id for the File object
+	 * @param json - The JSON to store
+	 */
+	async storeJSON<T extends Record<string, unknown>>(id: string, json: T) {
+		assert(this._opfsRoot);
+
+		if (!id.endsWith(".json")) throw new Error("Suffix should not include .json extension");
+
+		const fileHandle = await this._opfsRoot.getFileHandle(id, { create: true });
+		const writable = await fileHandle.createWritable();
+		await writable.write(JSON.stringify(json));
+		await writable.close();
+	}
+
+	/**
+	 * Overrides a JSON in OPFS
+	 *
+	 * @param id - The id for the File object
+	 * @param json - The JSON to store
+	 */
+	async OverrideJSON<T extends Record<string, unknown>>(id: string, json: T) {
+		assert(this._opfsRoot);
+
+		if (!id.endsWith(".json")) throw new Error("Suffix should not include .json extension");
+
+		const fileHandle = await this._opfsRoot.getFileHandle(id);
+		const writable = await fileHandle.createWritable();
+		await writable.write(JSON.stringify(json));
+		await writable.close();
+	}
+
+	/**
+	 * Reads JSON from a sidecar JSON file for a specific prefix.
+	 * @returns The JSON, or null if not found or corrupted
+	 */
+	async retrieveJSON<T extends Record<string, unknown>>(
+		id: string,
+		suffix: string
+	): Promise<T | null> {
+		assert(this._opfsRoot);
+
+		try {
+			const fileHandle = await this._opfsRoot.getFileHandle(id + suffix);
+			const file = await fileHandle.getFile();
+			const json = JSON.parse(await file.text()) as T;
+			return json;
+		} catch {
+			return null;
+		}
+	}
+
+	/**
 	 * Stores a file in OPFS and generates its metadata.
 	 * File saving and thumbnail generation run in parallel.
 	 *

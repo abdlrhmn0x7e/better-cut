@@ -1,27 +1,20 @@
-export type LayerType = "video" | "audio" | "image";
-
-export type BaseLayerOptions = {
-	src: File;
-	type: LayerType;
-};
-
-export type TimeOptions = { anchor: number; time: number };
+import type { BaseLayerOptions, LayerType, SerializedLayer, TimeOptions } from "./types";
 
 export abstract class BaseLayer {
 	public id: string;
 	public type: LayerType;
-	public src: File;
+	public startOffset = 0;
 	public startTime: number = 0;
 	public duration: number | null = null;
-	public startOffset = 0;
 
-	constructor({ src, type }: BaseLayerOptions) {
+	constructor({ type, startOffset }: BaseLayerOptions) {
 		this.id = crypto.randomUUID();
-		this.src = src;
+		this.startOffset = startOffset;
 		this.type = type;
 	}
 
 	abstract update(options: TimeOptions): Promise<void>;
 	abstract start(options: TimeOptions): Promise<void>;
 	abstract stop(options: TimeOptions): Promise<void>;
+	abstract toJSON(): SerializedLayer;
 }

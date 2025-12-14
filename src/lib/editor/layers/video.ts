@@ -1,3 +1,4 @@
+import { assert } from "$lib/utils/assert";
 import {
 	AudioBufferSink,
 	CanvasSink,
@@ -5,29 +6,20 @@ import {
 	type WrappedCanvas
 } from "mediabunny";
 import { probeVideo, type VideoProbe } from "../../media/probe.ts";
-import { BaseLayer, type BaseLayerOptions, type TimeOptions } from "./base.ts";
-import { assert } from "$lib/utils/assert";
-
-type VideoLayerOptions = Omit<BaseLayerOptions, "type"> & {
-	scale: number;
-	targetFps: number;
-	audioCtx: AudioContext;
-};
+import { BaseLayer } from "./base.ts";
+import type { SerializedLayer, TimeOptions, VideoLayerOptions } from "./types.ts";
 
 export class VideoLayer extends BaseLayer {
-	public scale: number;
-	public startOffset = 0;
+	public fileId: string;
+	public targetFps: number;
+	public isReady = false;
 
-	private _cache = new Map<number, WrappedCanvas>();
-
-	private _videoPrope: VideoProbe | null = null;
+	private _videoProbe: VideoProbe | null = null;
 	private _videoFrameIterator: AsyncGenerator<WrappedCanvas, void, unknown> | null = null;
 	private _videoSink: CanvasSink | null = null;
 
 	private _currentFrame: WrappedCanvas | null = null;
 	private _lastAlignedTimestamp = -1;
-
-	public targetFps: number;
 
 	private _audioCtx: AudioContext;
 	private _audioSink: AudioBufferSink | null = null;
@@ -40,21 +32,26 @@ export class VideoLayer extends BaseLayer {
 	public canvas: OffscreenCanvas | null = null;
 	private _canvasCtx: OffscreenCanvasRenderingContext2D | null = null;
 
-	public isReady = false;
-
-	private constructor({ targetFps, scale, audioCtx, ...base }: VideoLayerOptions) {
+	private constructor({ fileId, targetFps, audioCtx, ...base }: VideoLayerOptions) {
 		super({ ...base, type: "video" });
+		this.fileId = fileId;
 		this.targetFps = targetFps;
 
 		this.canvas = new OffscreenCanvas(1920, 1080);
 		this._canvasCtx = this.canvas.getContext("2d");
 		this._audioCtx = audioCtx;
-		this.scale = scale;
 	}
 
-	private async _init() {
-		this._videoPrope = await probeVideo(this.src);
-		this._videoSink = new CanvasSink(this._videoPrope.video);
+	static async init(src: File, options: VideoLayerOptions) {
+		const layer = new VideoLayer(options);
+		await layer._init(src);
+
+		return layer;
+	}
+
+	private async _init(src: File) {
+		this._videoProbe = await probeVideo(src);
+		this._videoSink = new CanvasSink(this._videoProbe.video);
 		this._videoFrameIterator = await this._createVideoFrameIterator();
 
 		const firstFrame = (await this._videoFrameIterator.next()).value ?? null;
@@ -62,15 +59,15 @@ export class VideoLayer extends BaseLayer {
 
 		if (!firstFrame) throw new Error("UNEXPECTED: This video has no frames");
 
-		if (this._videoPrope.audio) {
+		if (this._videoProbe.audio) {
 			this._audioGain = this._audioCtx.createGain();
 			this._audioGain.connect(this._audioCtx.destination);
-			this._audioSink = new AudioBufferSink(this._videoPrope.audio);
+			this._audioSink = new AudioBufferSink(this._videoProbe.audio);
 			this._audioIterator = await this._createAudioIterator();
 		}
 
 		this.isReady = true;
-		this.duration = this._videoPrope.duration;
+		this.duration = this._videoProbe.duration;
 	}
 
 	private async _createVideoFrameIterator(startTime = 0) {
@@ -89,13 +86,6 @@ export class VideoLayer extends BaseLayer {
 		return this._audioSink.buffers(startTime);
 	}
 
-	static async init(options: VideoLayerOptions) {
-		const layer = new VideoLayer(options);
-		await layer._init();
-
-		return layer;
-	}
-
 	private _shouldPlay(layerTime: number) {
 		assert(this.duration);
 
@@ -109,7 +99,7 @@ export class VideoLayer extends BaseLayer {
 	 * otherwise it returns
 	 */
 	async update({ anchor, time }: { anchor: number; time: number }) {
-		assert(this._videoPrope);
+		assert(this._videoProbe);
 		assert(this.canvas);
 		assert(this._canvasCtx);
 		assert(this.duration);
@@ -135,7 +125,7 @@ export class VideoLayer extends BaseLayer {
 		}
 
 		// Upsampling, duplicate frames/don't move the next frame until it's time has elapsed.
-		const frameEndTime = this._currentFrame.timestamp + this._videoPrope.fps / 1000;
+		const frameEndTime = this._currentFrame.timestamp + this._videoProbe.fps / 1000;
 		if (layerTime < frameEndTime) return;
 
 		this._lastAlignedTimestamp = alignedTime;
@@ -151,13 +141,7 @@ export class VideoLayer extends BaseLayer {
 
 		const nextCanvas = this._currentFrame.canvas;
 		this._canvasCtx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-		this._canvasCtx.drawImage(
-			nextCanvas,
-			0,
-			0,
-			nextCanvas.width * this.scale,
-			nextCanvas.height * this.scale
-		);
+		this._canvasCtx.drawImage(nextCanvas, 0, 0, nextCanvas.width, nextCanvas.height);
 	}
 
 	private _getAlignedTime() {
@@ -173,7 +157,7 @@ export class VideoLayer extends BaseLayer {
 		return nextFrame;
 	}
 
-	async start({ anchor, time }: TimeOptions) {
+	async start({ time }: TimeOptions) {
 		// update the video frame iterator on play depending on the starting position
 		const layerStartPos = Math.max(0, time - this.startOffset);
 		this._videoFrameIterator = await this._createVideoFrameIterator(layerStartPos);
@@ -253,5 +237,13 @@ export class VideoLayer extends BaseLayer {
 		}
 
 		this._audioNodesQueue.clear();
+	}
+
+	toJSON(): SerializedLayer {
+		return {
+			fileId: this.fileId,
+			type: "video" as const,
+			startOffset: this.startOffset
+		};
 	}
 }
