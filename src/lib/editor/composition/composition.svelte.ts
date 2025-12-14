@@ -1,4 +1,4 @@
-import { FileManager } from "$lib/media/file-manager.svelte";
+import { getFileManager } from "$lib/media";
 import { assert } from "$lib/utils/assert";
 import { BaseLayer, VideoLayer } from "../layers";
 import type { BaseLayerOptions } from "../layers/types";
@@ -14,26 +14,17 @@ export class Composition {
 	public currentTimestamp: number;
 	public layers: Array<BaseLayer> = $state([]);
 
-	private _fileManager: FileManager;
 	private _isSeeking = false;
 	private _audioCtx: AudioContext;
 	private _canvas: HTMLCanvasElement | null;
 	private _canvasCtx: CanvasRenderingContext2D | null;
 
-	constructor({
-		aspectRatio = 16 / 9,
-		id,
-		duration,
-		fps,
-		name,
-		fileManager
-	}: CompositionOptions & { fileManager: FileManager }) {
+	constructor({ aspectRatio = 16 / 9, id, duration, fps, name }: CompositionOptions = {}) {
 		this.id = id ?? (crypto.randomUUID() as string);
 		this.fps = fps ?? 24;
 		this.name = name ?? `comp-${this.id}`;
 		this.duration = duration ?? 60;
 		this.aspectRatio = aspectRatio;
-		this._fileManager = fileManager;
 
 		this._audioCtx = new AudioContext();
 
@@ -52,14 +43,19 @@ export class Composition {
 		this.seek(time);
 	}
 
-	async addLayer(layerOptions: BaseLayerOptions & { fileId?: string }) {
-		const { type, fileId, ...options } = layerOptions;
+	async addLayer(layerOptions: BaseLayerOptions & { dir?: string; fileId?: string }) {
+		const { type, fileId, dir, ...options } = layerOptions;
 
 		switch (type) {
 			case "video": {
 				assert(fileId);
+				assert(dir);
 
-				const src = await this._fileManager.retrieve(fileId);
+				const fileManager = await getFileManager();
+				const src = await fileManager.retrieve({
+					id: fileId,
+					dir
+				});
 				if (!src) throw new Error(`File with id ${fileId} not found`);
 
 				const layer = await VideoLayer.init(src, {
@@ -232,11 +228,13 @@ export class Composition {
 		};
 	}
 
-	static async fromJSON(json: SerializedComposition, fileManager: FileManager) {
+	static async fromJSON(projectFilesDir: string, json: SerializedComposition) {
 		const { layers, ...options } = json;
 
-		const comp = new Composition({ ...options, fileManager });
-		await Promise.all(layers.map((layerOptions) => comp.addLayer(layerOptions)));
+		const comp = new Composition(options);
+		await Promise.all(
+			layers.map((layerOptions) => comp.addLayer({ ...layerOptions, dir: projectFilesDir }))
+		);
 
 		return comp;
 	}

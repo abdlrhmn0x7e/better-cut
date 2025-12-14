@@ -10,8 +10,11 @@ export interface ProjectData {
 }
 
 export interface ProjectOptions {
+	id?: string;
 	name?: string;
 	fileIds?: string[];
+	createdAt?: string | Date;
+	updatedAt?: string | Date;
 }
 
 export interface SerializedProject extends Record<string, unknown> {
@@ -19,6 +22,7 @@ export interface SerializedProject extends Record<string, unknown> {
 	name: string;
 	createdAt: string;
 	updatedAt: string;
+	lastSavedAt: string;
 	fileIds: string[];
 	compositions: SerializedComposition[];
 }
