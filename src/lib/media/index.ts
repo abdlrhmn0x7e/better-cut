@@ -1,6 +1,4 @@
-import { FileManager } from "./file-manager.svelte";
-
-export type { FileMeta } from "./types";
+import { FileManager, META_SUFFIX } from "./file-manager.svelte";
 
 let instance: FileManager | null = null;
 
@@ -9,4 +7,5 @@ export async function getFileManager() {
 	return instance;
 }
 
-export * from "./file-manager.svelte";
+export * from "./types";
+export { FileManager, META_SUFFIX };

@@ -1,4 +1,4 @@
-type MediaType = "video" | "audio" | "image";
+export type MediaType = "video" | "audio" | "image";
 
 export type FileMeta = {
 	id: string; // uuid
