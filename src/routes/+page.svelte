@@ -6,6 +6,9 @@
 	import { Button } from "$lib/components/ui/button";
 	import { Project } from "$lib/project/project.svelte";
 	import { FilmIcon, InfoIcon, SettingsIcon } from "@lucide/svelte";
+	import * as Empty from "$lib/components/ui/empty/index.js";
+	import { Spinner } from "$lib/components/ui/spinner/index.js";
+	import ProjectCard from "$lib/components/project-card.svelte";
 
 	let listPromise = $state(Project.list());
 	function refreshProjects() {
@@ -35,7 +38,7 @@
 			</Button>
 		</aside>
 
-		<div class="col-span-3 space-y-3">
+		<div class="col-span-3 space-y-6">
 			<div class="flex items-center justify-between">
 				<h3 class="text-xl font-medium">Projects</h3>
 				<CreateProjectDialog {refreshProjects} />
@@ -43,13 +46,24 @@
 
 			<div>
 				{#await listPromise}
-					<!-- promise is pending -->
-					<p>waiting for the promise to resolve...</p>
+					<Empty.Root class="w-full">
+						<Empty.Header>
+							<Empty.Media variant="icon">
+								<Spinner />
+							</Empty.Media>
+							<Empty.Title>Retrieving projects</Empty.Title>
+							<Empty.Description>
+								Please wait while we retrieve your projects. Do not refresh the page.
+							</Empty.Description>
+						</Empty.Header>
+					</Empty.Root>
 				{:then list}
-					<!-- promise was fulfilled or not a Promise -->
-					<p>Available projects are {JSON.stringify(list)}</p>
+					<div class="grid grid-cols-2 gap-3">
+						{#each list as project (project.id)}
+							<ProjectCard {project} />
+						{/each}
+					</div>
 				{:catch error}
-					<!-- promise was rejected -->
 					<p>Something went wrong: {error.message}</p>
 				{/await}
 			</div>

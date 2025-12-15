@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { getEditorState } from "$lib/editor/editor-state.svelte";
 	import { FilePlusIcon } from "@lucide/svelte";
 	import type { WithElementRef } from "bits-ui";
 	import { onMount } from "svelte";
@@ -10,25 +9,23 @@
 
 	let videoInput: HTMLInputElement;
 
-	const ctx = getEditorState();
+	// const handleVideoInput = async (e: Event) => {
+	// 	const target = e.target as HTMLInputElement;
+	// 	const files = target.files;
+	// 	if (!files || files?.length === 0) throw new Error("You must provide 1 file atleast");
 
-	const handleVideoInput = async (e: Event) => {
-		const target = e.target as HTMLInputElement;
-		const files = target.files;
-		if (!files || files?.length === 0) throw new Error("You must provide 1 file atleast");
-
-		// add files to a global state
-		Array.from(files).forEach((file) => ctx.files.set(crypto.randomUUID(), file));
-	};
+	// 	// add files to a global state
+	// 	Array.from(files).forEach((file) => ctx.files.set(crypto.randomUUID(), file));
+	// };
 
 	const handleImport: MouseEventHandler<HTMLButtonElement> = (e) => {
 		videoInput.click();
 		dropdownCb?.(e);
 	};
 
-	onMount(() => {
-		videoInput.addEventListener("change", handleVideoInput);
-	});
+	// onMount(() => {
+	// 	videoInput.addEventListener("change", handleVideoInput);
+	// });
 </script>
 
 <input bind:this={videoInput} type="file" accept="video/mp4" multiple hidden />

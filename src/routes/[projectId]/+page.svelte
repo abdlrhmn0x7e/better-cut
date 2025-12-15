@@ -1,41 +1,25 @@
 <script lang="ts">
-	import type { Action } from "svelte/action";
-
-	import { setEditorState } from "$lib/editor/editor-state.svelte";
-
 	import { Toolbar } from "$lib/components/toolbar";
 	import * as Resizable from "$lib/components/ui/resizable/index.js";
 
-	import VideoPreview from "$lib/components/video-preview.svelte";
 	import ProjectPanel from "$lib/components/project-panel/panel.svelte";
 	import Timeline from "$lib/components/timeline/timeline.svelte";
 	import { supportsWebCodecs } from "$lib/editor/capabilities";
+	import type { PageProps } from "./$types";
+	import { setProject } from "$lib/project";
 
-	const ctx = setEditorState();
-
-	// this is here because I wanted all initializations to live in the root page
-	const previewAction: Action<HTMLCanvasElement> = (node) => {
-		ctx.comp.canvas = node;
-	};
-
-	// adjust the size of the preview on every resize
-	// TODO: I should probably throttle this
-	function handlePreviewResize() {
-		if (!ctx.comp) return;
-
-		ctx.comp.rescale();
-	}
-
-	console.log("WEB CODECS SUPPORT", supportsWebCodecs());
+	const { data }: PageProps = $props();
+	const project = setProject(data.project);
+	console.log("Loaded project:", project.name);
 </script>
 
 <main class="h-screen flex flex-col">
 	{#if supportsWebCodecs()}
 		<Toolbar />
 
-		<Resizable.PaneGroup direction="vertical" onLayoutChange={handlePreviewResize}>
+		<Resizable.PaneGroup direction="vertical">
 			<Resizable.Pane defaultSize={50}>
-				<Resizable.PaneGroup direction="horizontal" onLayoutChange={handlePreviewResize}>
+				<Resizable.PaneGroup direction="horizontal">
 					<Resizable.Pane defaultSize={30}>
 						<ProjectPanel />
 					</Resizable.Pane>
@@ -43,7 +27,7 @@
 					<Resizable.Handle withHandle class="bg-transparent" />
 
 					<Resizable.Pane defaultSize={50}>
-						<VideoPreview action={previewAction} />
+						<!-- <VideoPreview action={previewAction} /> -->
 					</Resizable.Pane>
 
 					<Resizable.Handle withHandle class="bg-transparent" />

@@ -7,7 +7,6 @@ export function getProject() {
 	return getProjectContext();
 }
 
-export async function setProject(id: string) {
-	const project = await Project.load(id);
+export function setProject(project: Project) {
 	return setProjectContext(project);
 }
