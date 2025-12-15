@@ -2,9 +2,7 @@ import { Composition, type CompositionOptions } from "$lib/editor/composition";
 import { getFileManager, META_SUFFIX, type FileMeta } from "$lib/media";
 import { SvelteDate } from "svelte/reactivity";
 import type { ProjectData, ProjectOptions, SerializedProject } from "./types";
-
-const PROJECT_FILE = "project.json";
-const PROJECTS_DIR = "better-cut-projects";
+import { PROJECT_FILE, PROJECTS_DIR } from "./constants";
 
 /**
  * Represents a video editing project with persistent storage.
@@ -210,7 +208,7 @@ export class Project implements ProjectData {
 	 * @param options - Composition settings (fps, duration, aspect ratio, etc.)
 	 */
 	createComposition(options?: CompositionOptions): void {
-		const newComp = new Composition(options);
+		const newComp = new Composition(options ?? { projectId: this.id });
 		this.compositions.push(newComp);
 		this._update();
 	}
@@ -262,7 +260,7 @@ export class Project implements ProjectData {
 
 		// we had to do a sequential loop becuase the order of the comps matters.
 		for (const serializedComp of compositions) {
-			const comp = await Composition.fromJSON(project.filesDir, serializedComp);
+			const comp = await Composition.fromJSON(serializedComp);
 			project.compositions.push(comp);
 		}
 

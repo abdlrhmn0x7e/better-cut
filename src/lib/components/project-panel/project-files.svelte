@@ -24,7 +24,7 @@
 					through the toolbar menu
 				</Empty.Description>
 				<Empty.Content>
-					<ImportFiles class={buttonVariants({})} />
+					<ImportFiles class={buttonVariants({ size: "sm" })} />
 				</Empty.Content>
 			</Empty.Header>
 		</Empty.Root>

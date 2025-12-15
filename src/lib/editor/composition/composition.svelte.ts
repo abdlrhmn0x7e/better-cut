@@ -1,9 +1,11 @@
-import { getFileManager } from "$lib/media";
+import { PROJECTS_DIR } from "$lib/project/constants";
 import { assert } from "$lib/utils/assert";
 import { BaseLayer, VideoLayer } from "../layers";
-import type { BaseLayerOptions } from "../layers/types";
+import { createLayer } from "../layers/factory";
+import type { TimeOptions } from "../layers/types";
 import type { CompositionOptions, SerializedComposition } from "./types";
 
+// there should be a layer class for it since compositions could be layers also
 export class Composition {
 	public id: string;
 	public fps: number;
@@ -12,21 +14,24 @@ export class Composition {
 	public playing: boolean;
 	public aspectRatio: number;
 	public currentTimestamp: number;
-	public layers: Array<BaseLayer> = $state([]);
+	public layers: Array<BaseLayer> = $state([]); // I might replace this with a SvelteMap
+	public audioCtx: AudioContext;
 
+	private _projectId: string;
 	private _isSeeking = false;
-	private _audioCtx: AudioContext;
 	private _canvas: HTMLCanvasElement | null;
 	private _canvasCtx: CanvasRenderingContext2D | null;
 
-	constructor({ aspectRatio = 16 / 9, id, duration, fps, name }: CompositionOptions = {}) {
+	constructor({ aspectRatio = 16 / 9, id, duration, projectId, fps, name }: CompositionOptions) {
 		this.id = id ?? (crypto.randomUUID() as string);
 		this.fps = fps ?? 24;
 		this.name = name ?? `comp-${this.id}`;
 		this.duration = duration ?? 60;
 		this.aspectRatio = aspectRatio;
 
-		this._audioCtx = new AudioContext();
+		this._projectId = projectId;
+
+		this.audioCtx = new AudioContext();
 
 		this._canvas = null;
 		this._canvasCtx = null;
@@ -40,42 +45,27 @@ export class Composition {
 		if (time < 0 || time > this.duration) return;
 
 		this.currentTimestamp = time;
-		this.seek(time);
+		this.update({ time, anchor: -1 }); // dummy anchor
 	}
 
-	async addLayer(layerOptions: BaseLayerOptions & { dir?: string; fileId?: string }) {
-		const { type, fileId, dir, ...options } = layerOptions;
-
-		switch (type) {
-			case "video": {
-				assert(fileId);
-				assert(dir);
-
-				const fileManager = await getFileManager();
-				const src = await fileManager.retrieve({
-					id: fileId,
-					dir
-				});
-				if (!src) throw new Error(`File with id ${fileId} not found`);
-
-				const layer = await VideoLayer.init(src, {
-					targetFps: this.fps,
-					audioCtx: this._audioCtx,
-					fileId,
-					...options
-				});
-				this.layers.push(layer);
-				break;
-			}
-		}
+	insertLayer(layer: BaseLayer) {
+		layer.attach(this);
+		this.layers.push(layer);
 	}
 
-	async play() {
+	removeLayer(layerId: string) {
+		const layer = this.layers.find((l) => l.id === layerId);
+		if (!layer) throw new Error(`Layer with id ${layerId} not found`);
+		void layer.detach(); // this is intentional detaching the layer should happen in the background
+		this.layers = this.layers.filter((layer) => layer.id !== layerId);
+	}
+
+	async start() {
 		if (this.playing) return;
 		this.playing = true;
 
-		const anchor = this._audioCtx.currentTime - this.currentTimestamp;
-		this.currentTimestamp = this._audioCtx.currentTime - anchor;
+		const anchor = this.audioCtx.currentTime - this.currentTimestamp;
+		this.currentTimestamp = this.audioCtx.currentTime - anchor;
 
 		for (const layer of this.layers) {
 			await layer.start({
@@ -86,7 +76,7 @@ export class Composition {
 
 		requestAnimationFrame(() => {
 			this._tick.bind(this)({
-				anchor: this._audioCtx.currentTime - this.currentTimestamp
+				anchor: this.audioCtx.currentTime - this.currentTimestamp
 			});
 		});
 	}
@@ -98,9 +88,12 @@ export class Composition {
 		// if we're not playing return
 		if (!this.playing) return;
 
-		this.currentTimestamp = this._audioCtx.currentTime - anchor;
+		this.currentTimestamp = this.audioCtx.currentTime - anchor;
 
 		this._canvasCtx.clearRect(0, 0, this._canvas.width, this._canvas.height);
+
+		// order of which layer is updated first doesn't matter for now
+		// running those in parallel is fine until now...
 		this.layers.forEach(async (layer) => {
 			await layer.update({
 				anchor,
@@ -126,7 +119,7 @@ export class Composition {
 		this._canvasCtx.drawImage(layer.canvas, 0, 0, layer.canvas.width, layer.canvas.height);
 	}
 
-	async pause() {
+	async stop() {
 		if (!this.playing) return;
 
 		this.playing = false;
@@ -140,7 +133,7 @@ export class Composition {
 		);
 	}
 
-	async seek(time: number) {
+	async update({ time }: TimeOptions) {
 		assert(this._canvas);
 		assert(this._canvasCtx);
 
@@ -153,7 +146,7 @@ export class Composition {
 		const wasPlaying = this.playing;
 		this.playing = false;
 
-		const anchor = this._audioCtx.currentTime - time;
+		const anchor = this.audioCtx.currentTime - time;
 
 		await Promise.all(
 			this.layers.map(async (layer) => {
@@ -217,7 +210,7 @@ export class Composition {
 		this.rescale();
 	}
 
-	toJSON(): SerializedComposition {
+	toJSON<SerializedComposition>() {
 		return {
 			id: this.id,
 			fps: this.fps,
@@ -225,17 +218,25 @@ export class Composition {
 			duration: this.duration,
 			aspectRatio: this.aspectRatio,
 			layers: this.layers.map((layer) => layer.toJSON())
-		};
+		} as SerializedComposition;
 	}
 
-	static async fromJSON(projectFilesDir: string, json: SerializedComposition) {
+	static async fromJSON(json: SerializedComposition) {
 		const { layers, ...options } = json;
 
 		const comp = new Composition(options);
-		await Promise.all(
-			layers.map((layerOptions) => comp.addLayer({ ...layerOptions, dir: projectFilesDir }))
+		const recreatedLayers = await Promise.all(
+			layers.map((layerOptions) => createLayer(layerOptions))
 		);
 
+		for (const layer of recreatedLayers) {
+			comp.insertLayer(layer);
+		}
+
 		return comp;
+	}
+
+	get projectFilesDir() {
+		return `${PROJECTS_DIR}/${this._projectId}/files`;
 	}
 }

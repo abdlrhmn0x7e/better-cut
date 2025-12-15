@@ -5,6 +5,7 @@ export interface CompositionOptions {
 	fps?: number;
 	name?: string;
 	duration?: number;
+	projectId: string;
 	aspectRatio?: number;
 }
 
@@ -13,6 +14,7 @@ export interface SerializedComposition {
 	fps: number;
 	name: string;
 	duration: number;
+	projectId: string;
 	aspectRatio: number;
 	layers: SerializedLayer[];
 }

@@ -15,16 +15,16 @@
 	const ctx = getEditorState();
 
 	function handlePlay() {
-		void ctx.comp.play();
+		void ctx.comp.start();
 	}
 
 	function handlePause() {
-		void ctx.comp.pause();
+		void ctx.comp.stop();
 	}
 
 	function handleToggle() {
-		if (ctx.comp.playing) void ctx.comp.pause();
-		else void ctx.comp.play();
+		if (ctx.comp.playing) void ctx.comp.stop();
+		else void ctx.comp.start();
 	}
 
 	function handleKeydown(
