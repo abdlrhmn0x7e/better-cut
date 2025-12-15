@@ -7,7 +7,7 @@ export function getProject() {
 	return getProjectContext();
 }
 
-export async function setTimelineState(id: string) {
+export async function setProject(id: string) {
 	const project = await Project.load(id);
 	return setProjectContext(project);
 }

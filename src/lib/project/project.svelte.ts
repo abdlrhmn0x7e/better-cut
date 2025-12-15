@@ -3,6 +3,7 @@ import { getFileManager, META_SUFFIX, type FileMeta } from "$lib/media";
 import { SvelteDate } from "svelte/reactivity";
 import type { ProjectData, ProjectOptions, SerializedProject } from "./types";
 import { PROJECT_FILE, PROJECTS_DIR } from "./constants";
+import { CommandHistory } from "$lib/editor/commands/history.svelte";
 
 /**
  * Represents a video editing project with persistent storage.
@@ -61,6 +62,10 @@ export class Project implements ProjectData {
 
 	/** Compositions (timelines) within this project */
 	public compositions: Composition[] = [];
+
+	public history = new CommandHistory();
+
+	public activeCompositionId: string | null = $state(null);
 
 	/**
 	 * Private constructor - use `Project.init()` or `Project.load()` instead.
@@ -124,9 +129,8 @@ export class Project implements ProjectData {
 		const projects = await fileManager.list(PROJECTS_DIR);
 		const list: SerializedProject[] = [];
 		await Promise.all(
-			projects.map(async ([name, handle]) => {
+			projects.map(async ([, handle]) => {
 				if (!(handle instanceof FileSystemDirectoryHandle)) return;
-				if (name !== PROJECT_FILE) return;
 
 				const projectFileHandle = await handle.getFileHandle(PROJECT_FILE);
 				const project =

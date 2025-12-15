@@ -11,12 +11,9 @@
 
 			<DropdownMenu.Trigger>
 				{#snippet child({ props })}
-					<Button
-						{...props}
-						variant="ghost"
-						class="cursor-pointer data-[state=open]:bg-accent"
-						size="xs">File</Button
-					>
+					<Button {...props} variant="ghost" class="cursor-pointer data-[state=open]:bg-accent">
+						File
+					</Button>
 				{/snippet}
 			</DropdownMenu.Trigger>
 		</div>

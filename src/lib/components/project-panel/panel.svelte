@@ -5,7 +5,7 @@
 	import { AccessibilityIcon, FilesIcon } from "@lucide/svelte";
 </script>
 
-<div class="p-0 size-full">
+<div class="p-1 size-full">
 	<Tabs.Root value="files" class="flex-row size-full">
 		<Tabs.List class="flex-col h-fit bg-background">
 			<Tabs.Trigger value="files" class="w-full cursor-pointer flex-col">
