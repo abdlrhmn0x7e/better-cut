@@ -3,7 +3,7 @@ import { TARGET_TICK_WIDTH, TICK_INTERVALS, TICK_PADDING } from "./constants";
 import { EditorState, getEditorState } from "$lib/editor";
 
 class TimelineState {
-	public selectedLayerId = $state(-1);
+	public selectedLayerId = $state<string | null>(null);
 	public zoomFactor = $state(1);
 	public viewportWidth = $state(0);
 	private _editor: EditorState;

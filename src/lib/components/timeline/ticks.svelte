@@ -1,15 +1,12 @@
 <script lang="ts">
+	import { draggable } from "$lib/attachments/draggable";
 	import { getEditorState } from "$lib/editor";
 	import { TICK_PADDING } from "./constants";
 	import { getTimelineState } from "./timeline-state.svelte";
 
 	const editor = getEditorState();
-	const timeline = getTimelineState();
-	$inspect("timeline", timeline.layers);
-	$inspect("timeline ticks", timeline.mainTicks);
-
 	let ticksEl: HTMLDivElement;
-	let isDragging = $state(false);
+	const timeline = getTimelineState();
 
 	function renderTime(time: number) {
 		const hours = Math.floor(time / 3600);
@@ -50,16 +47,6 @@
 		}
 	}
 
-	function handlePointerUp(
-		e: PointerEvent & {
-			currentTarget: EventTarget & HTMLDivElement;
-		}
-	) {
-		ticksEl.releasePointerCapture(e.pointerId);
-
-		isDragging = false;
-	}
-
 	function getTime(localX: number) {
 		const rect = ticksEl.getClientRects().item(0);
 		if (!rect) return 0;
@@ -68,27 +55,13 @@
 		return Math.max(0, Math.min(rawTime, editor.activeComposition?.duration ?? 0));
 	}
 
-	function handlePointerDown(
-		e: PointerEvent & {
-			currentTarget: EventTarget & HTMLDivElement;
-		}
-	) {
-		ticksEl.setPointerCapture(e.pointerId); // makes sure the pointer up event is fired
-
-		if (!editor.activeComposition || !ticksEl) return;
+	function onDrag(e: PointerEvent) {
+		if (!editor.activeComposition) return;
 
 		editor.activeComposition.setCurrentTimestamp(getTime(e.clientX));
-
-		isDragging = true;
 	}
 
-	function handlePointerMove(
-		e: PointerEvent & {
-			currentTarget: EventTarget & HTMLDivElement;
-		}
-	) {
-		if (!isDragging) return;
-
+	function handleClick(e: MouseEvent) {
 		if (!editor.activeComposition) return;
 
 		editor.activeComposition.setCurrentTimestamp(getTime(e.clientX));
@@ -96,16 +69,15 @@
 </script>
 
 <div
-	bind:this={ticksEl}
 	role="button"
 	tabindex="0"
 	class="timeline focus:outline-none relative overflow-hidden h-8"
-	onpointerup={handlePointerUp}
-	onpointerdown={handlePointerDown}
-	onpointermove={handlePointerMove}
+	{@attach draggable(onDrag)}
 	onkeydown={handleTimelineKeydown}
+	onpointerdown={handleClick}
+	bind:this={ticksEl}
 >
-	{#each timeline.mainTicks as tick, index (`tick-${tick.time}`)}
+	{#each timeline.mainTicks as tick, index (`tick-${tick.time}-${tick.pos}`)}
 		<div
 			class="pointer-events-none absolute bottom-0 flex flex-col items-center gap-1 z-10 bg-background w-px"
 			style:left="{tick.pos}px"

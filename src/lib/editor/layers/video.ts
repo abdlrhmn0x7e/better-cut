@@ -6,7 +6,7 @@ import {
 	type WrappedCanvas
 } from "mediabunny";
 import { probeVideo, type VideoProbe } from "../../media/probe.ts";
-import { BaseLayer } from "./base.ts";
+import { BaseLayer } from "./base.svelte.ts";
 import type { SerializedLayer, TimeOptions, VideoLayerOptions } from "./types.ts";
 import { getFileManager } from "$lib/media";
 
@@ -64,8 +64,8 @@ export class VideoLayer extends BaseLayer {
 
 		if (!firstFrame) throw new Error("UNEXPECTED: This video has no frames");
 
+		this.endTime = this._videoProbe.duration;
 		this.isReady = true;
-		this.duration = this._videoProbe.duration;
 	}
 
 	protected async onAttach() {
@@ -110,9 +110,9 @@ export class VideoLayer extends BaseLayer {
 	}
 
 	private _shouldPlay(layerTime: number) {
-		assert(this.duration);
+		assert(this.endTime);
 
-		return layerTime >= 0 && layerTime <= this.duration;
+		return layerTime >= 0 && layerTime <= this.endTime;
 	}
 
 	/**
@@ -125,7 +125,7 @@ export class VideoLayer extends BaseLayer {
 		assert(this._videoProbe);
 		assert(this.canvas);
 		assert(this._canvasCtx);
-		assert(this.duration);
+		assert(this.endTime);
 
 		const layerAnchor = anchor + this.startOffset;
 		const layerTime = time - this.startOffset;

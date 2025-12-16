@@ -1,13 +1,13 @@
 <script lang="ts">
+	import * as Empty from "$lib/components/ui/empty/index.js";
 	import * as Resizable from "$lib/components/ui/resizable/index.js";
 	import { getEditorState } from "$lib/editor";
 	import Layer from "./layer.svelte";
 	import LayersPanel from "./layers-panel.svelte";
-	import * as Empty from "$lib/components/ui/empty/index.js";
 	import Playhead from "./playhead.svelte";
+	import Scrollbar from "./scrollbar.svelte";
 	import Ticks from "./ticks.svelte";
 	import { setTimelineState } from "./timeline-state.svelte";
-	import Scrollbar from "./scrollbar.svelte";
 
 	const editor = getEditorState();
 	const timeline = setTimelineState();

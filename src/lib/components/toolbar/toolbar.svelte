@@ -30,6 +30,9 @@
 				<Button onclick={() => editor.save()} size="xs" variant="ghost" disabled={editor.isSaving}
 					>Save</Button
 				>
+
+				<Button onclick={() => editor.history.undo()} size="xs" variant="ghost">Undo</Button>
+				<Button onclick={() => editor.history.redo()} size="xs" variant="ghost">redo</Button>
 			</div>
 		</div>
 

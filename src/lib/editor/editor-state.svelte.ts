@@ -8,8 +8,9 @@ import { toast } from "svelte-sonner";
 import { SvelteMap } from "svelte/reactivity";
 import { AddLayerCommand } from "./commands/add-layer";
 import { createLayer } from "./layers/factory";
-import type { LayerOptions } from "./layers";
+import type { BaseLayer, LayerOptions } from "./layers";
 import { RemoveLayerCommand } from "./commands/remove-layer";
+import { MoveLayerCommand } from "./commands/move-layer";
 
 export class EditorState {
 	public isSaving = $state(false);
@@ -107,6 +108,11 @@ export class EditorState {
 		);
 	}
 
+	moveLayer(delta: number) {
+		assert(this.activeLayer);
+		this.history.execute(new MoveLayerCommand({ layer: this.activeLayer, delta }));
+	}
+
 	async save() {
 		console.log("saving");
 		assert(this.project);
@@ -131,6 +137,11 @@ export class EditorState {
 	get activeLayer() {
 		if (!this.activeComposition || !this._activeLayerId) return undefined;
 		return this.activeComposition.layers.get(this._activeLayerId);
+	}
+
+	set activeLayer(layer: BaseLayer | undefined) {
+		if (!layer) return;
+		this._activeLayerId = layer.id;
 	}
 }
 

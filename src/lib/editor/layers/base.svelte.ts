@@ -6,8 +6,9 @@ import type { MaybePromise } from "../types";
 export abstract class BaseLayer {
 	public id: string;
 	public type: LayerType;
-	public startOffset = 0;
-	public duration: number | null = null;
+	public startOffset = $state(0);
+	public startTime = $state(0);
+	public endTime = $state<number | null>(null);
 	public projectId: string;
 
 	protected _comp: Composition | null = null;
