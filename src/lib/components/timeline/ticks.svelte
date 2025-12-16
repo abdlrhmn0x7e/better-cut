@@ -1,10 +1,12 @@
 <script lang="ts">
-	import { getEditorState } from "$lib/editor/editor-state.svelte";
+	import { getEditorState } from "$lib/editor";
 	import { TICK_PADDING } from "./constants";
 	import { getTimelineState } from "./timeline-state.svelte";
 
-	const ctx = getEditorState();
-	const timelineState = getTimelineState();
+	const editor = getEditorState();
+	const timeline = getTimelineState();
+	$inspect("timeline", timeline.layers);
+	$inspect("timeline ticks", timeline.mainTicks);
 
 	let ticksEl: HTMLDivElement;
 	let isDragging = $state(false);
@@ -26,20 +28,23 @@
 			currentTarget: EventTarget & HTMLDivElement;
 		}
 	) {
-		if (!ctx.comp) return;
+		if (!editor.activeComposition) return;
 
 		const key = e.key;
-		const step = 1 / ctx.comp.fps;
+		const step = 1 / editor.activeComposition.fps;
 		switch (key) {
 			case "ArrowRight": {
-				ctx.comp.setCurrentTimestamp(ctx.comp.currentTimestamp + step);
+				editor.activeComposition.setCurrentTimestamp(
+					editor.activeComposition.currentTimestamp + step
+				);
 				break;
 			}
 
 			case "ArrowLeft": {
-				if (ctx.comp.currentTimestamp <= 0) break;
+				const comp = editor.activeComposition;
+				if (comp.currentTimestamp <= 0) break;
 
-				ctx.comp.setCurrentTimestamp(ctx.comp.currentTimestamp - step);
+				comp.setCurrentTimestamp(comp.currentTimestamp - step);
 				break;
 			}
 		}
@@ -59,9 +64,8 @@
 		const rect = ticksEl.getClientRects().item(0);
 		if (!rect) return 0;
 
-		const rawTime =
-			(localX - rect.left - TICK_PADDING + timelineState.scrollLeft) / timelineState.pps;
-		return Math.max(0, Math.min(rawTime, ctx.comp.duration));
+		const rawTime = (localX - rect.left - TICK_PADDING + timeline.scrollLeft) / timeline.pps;
+		return Math.max(0, Math.min(rawTime, editor.activeComposition?.duration ?? 0));
 	}
 
 	function handlePointerDown(
@@ -71,9 +75,9 @@
 	) {
 		ticksEl.setPointerCapture(e.pointerId); // makes sure the pointer up event is fired
 
-		if (!ctx.comp || !ticksEl) return;
+		if (!editor.activeComposition || !ticksEl) return;
 
-		ctx.comp.setCurrentTimestamp(getTime(e.clientX));
+		editor.activeComposition.setCurrentTimestamp(getTime(e.clientX));
 
 		isDragging = true;
 	}
@@ -85,9 +89,9 @@
 	) {
 		if (!isDragging) return;
 
-		if (!ctx.comp) return;
+		if (!editor.activeComposition) return;
 
-		ctx.comp.setCurrentTimestamp(getTime(e.clientX));
+		editor.activeComposition.setCurrentTimestamp(getTime(e.clientX));
 	}
 </script>
 
@@ -101,14 +105,14 @@
 	onpointermove={handlePointerMove}
 	onkeydown={handleTimelineKeydown}
 >
-	{#each timelineState.mainTicks as tick, index (`tick-${tick.time}`)}
+	{#each timeline.mainTicks as tick, index (`tick-${tick.time}`)}
 		<div
 			class="pointer-events-none absolute bottom-0 flex flex-col items-center gap-1 z-10 bg-background w-px"
 			style:left="{tick.pos}px"
 		>
 			<span
 				class="text-xs font-semibold text-muted-foreground {index === 0 && 'pl-3'} {index ===
-					timelineState.mainTicks.length - 1 && 'pr-12'}">{renderTime(tick.time)}</span
+					timeline.mainTicks.length - 1 && 'pr-12'}">{renderTime(tick.time)}</span
 			>
 			<div class="h-2 w-px bg-muted-foreground"></div>
 		</div>

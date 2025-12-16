@@ -1,9 +1,8 @@
-import { Composition, type CompositionOptions } from "$lib/editor/composition";
 import { getFileManager, META_SUFFIX, type FileMeta } from "$lib/media";
 import { SvelteDate } from "svelte/reactivity";
 import type { ProjectData, ProjectOptions, SerializedProject } from "./types";
 import { PROJECT_FILE, PROJECTS_DIR } from "./constants";
-import { CommandHistory } from "$lib/editor/commands/history.svelte";
+import { Composition, type SerializedComposition } from "$lib/editor/composition";
 
 /**
  * Represents a video editing project with persistent storage.
@@ -60,12 +59,8 @@ export class Project implements ProjectData {
 	/** IDs of media files stored in this project (reactive) */
 	public fileIds: string[];
 
-	/** Compositions (timelines) within this project */
-	public compositions: Composition[] = [];
-
-	public history = new CommandHistory();
-
-	public activeCompositionId: string | null = $state(null);
+	/** Composition Ids (timelines) within this project */
+	public compositionIds: string[] = [];
 
 	/**
 	 * Private constructor - use `Project.init()` or `Project.load()` instead.
@@ -94,20 +89,16 @@ export class Project implements ProjectData {
 	 * );
 	 * ```
 	 */
-	public static async init(
-		options?: ProjectOptions,
-		mainCompositionOptions?: CompositionOptions
-	): Promise<Project> {
+	public static async init(options?: ProjectOptions): Promise<Project> {
 		const project = new Project(options);
-		await project._init(mainCompositionOptions);
+		await project._init();
 		return project;
 	}
 
 	/**
 	 * Initializes the project by creating a default composition and persisting to storage.
 	 */
-	private async _init(mainCompositionOptions?: CompositionOptions): Promise<void> {
-		this.createComposition(mainCompositionOptions);
+	private async _init(): Promise<void> {
 		await this.save();
 	}
 
@@ -180,7 +171,7 @@ export class Project implements ProjectData {
 	 * await project.addFile(input.files[0]);
 	 * ```
 	 */
-	public async addFile(file: File): Promise<void> {
+	public async addFile(file: File) {
 		const fileManager = await getFileManager();
 		const meta = await fileManager.store({
 			file,
@@ -188,6 +179,7 @@ export class Project implements ProjectData {
 		});
 		this.fileIds.push(meta.id);
 		this._update();
+		return meta;
 	}
 
 	/**
@@ -206,24 +198,52 @@ export class Project implements ProjectData {
 		this._update();
 	}
 
+	public async getCompositions() {
+		const fileManager = await getFileManager();
+		const files = await fileManager.list(this.compositionsDir);
+		const list: SerializedComposition[] = [];
+		await Promise.all(
+			files.map(async ([, handle]) => {
+				if (!(handle instanceof FileSystemFileHandle)) return;
+
+				const comp = await fileManager.readFileContentAsJSON<SerializedComposition>(handle);
+				if (!comp) return;
+
+				list.push(comp);
+			})
+		);
+
+		return list;
+	}
+
 	/**
-	 * Creates a new composition (timeline) within the project.
+	 * Adds a composition from the project.
 	 *
-	 * @param options - Composition settings (fps, duration, aspect ratio, etc.)
+	 * @param id - The composition ID to add
 	 */
-	createComposition(options?: CompositionOptions): void {
-		const newComp = new Composition(options ?? { projectId: this.id });
-		this.compositions.push(newComp);
+	async addComposition(comp: Composition) {
+		const fileManager = await getFileManager();
+		await fileManager.writeJSON({
+			id: comp.id,
+			json: comp.toJSON(),
+			dir: this.compositionsDir
+		});
+		this.compositionIds.push(comp.id);
 		this._update();
 	}
 
 	/**
-	 * Deletes a composition from the project.
+	 * Removes a composition from the project.
 	 *
 	 * @param id - The composition ID to delete
 	 */
-	deleteComposition(id: string): void {
-		this.compositions = this.compositions.filter((comp) => comp.id !== id);
+	async removeComposition(id: string) {
+		const fileManager = await getFileManager();
+		await fileManager.deleteJSON({
+			id,
+			dir: this.compositionsDir
+		});
+		this.compositionIds = this.compositionIds.filter((compId) => compId !== id);
 		this._update();
 	}
 
@@ -247,7 +267,7 @@ export class Project implements ProjectData {
 			createdAt: this.createdAt.toISOString(),
 			updatedAt: this.updatedAt.toISOString(),
 			lastSavedAt: this.lastSavedAt.toISOString(),
-			compositions: this.compositions.map((comp) => comp.toJSON())
+			compositionIds: this.compositionIds
 		};
 	}
 
@@ -259,16 +279,7 @@ export class Project implements ProjectData {
 	 * @returns The rehydrated project instance
 	 */
 	static async fromJSON(json: SerializedProject): Promise<Project> {
-		const { compositions, ...options } = json;
-		const project = new Project(options);
-
-		// we had to do a sequential loop becuase the order of the comps matters.
-		for (const serializedComp of compositions) {
-			const comp = await Composition.fromJSON(serializedComp);
-			project.compositions.push(comp);
-		}
-
-		return project;
+		return new Project(json);
 	}
 
 	/**
@@ -334,5 +345,9 @@ export class Project implements ProjectData {
 	 */
 	get filesDir(): string {
 		return `${this.dir}/files`;
+	}
+
+	get compositionsDir(): string {
+		return `${this.dir}/compositions`;
 	}
 }

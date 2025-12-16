@@ -15,7 +15,7 @@
 		</Card.Header>
 		<Card.Content class="grid grid-cols-2">
 			<p class="font-medium">
-				<span class="text-muted-foreground">{project.compositions.length}</span> -
+				<span class="text-muted-foreground">{project.compositionIds.length}</span> -
 				<span class="font-medium">Compositions</span>
 			</p>
 			<p class="font-medium">

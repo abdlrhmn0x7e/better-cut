@@ -11,10 +11,10 @@ type CommandContext = {
 };
 export const [getCommandContext, setCommandContext] = createContext<CommandContext>();
 
-export function getProject() {
+export function getCommand() {
 	return getCommandContext();
 }
 
-export async function setTimelineState(id: string, type: "composition" | "layer") {
+export async function setCommand(id: string, type: "composition" | "layer") {
 	return setCommandContext({ id, type });
 }

@@ -9,7 +9,7 @@ export interface CompositionOptions {
 	aspectRatio?: number;
 }
 
-export interface SerializedComposition {
+export interface SerializedComposition extends Record<string, unknown> {
 	id: string;
 	fps: number;
 	name: string;

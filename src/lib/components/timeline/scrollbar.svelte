@@ -9,7 +9,9 @@
 	let isDragging = $state(false);
 	let lastPointerX = $state(0);
 
-	const totalTimelineWidth = $derived(editorState.comp.duration * timelineState.pps);
+	const totalTimelineWidth = $derived(
+		(editorState.activeComposition?.duration ?? 0) * timelineState.pps
+	);
 	const thumbWidth = $derived(
 		Math.min(timelineState.viewportWidth / totalTimelineWidth, 1) * trackWidth
 	);

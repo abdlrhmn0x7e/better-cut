@@ -1,9 +1,10 @@
 import { PROJECTS_DIR } from "$lib/project/constants";
 import { assert } from "$lib/utils/assert";
+import { SvelteMap } from "svelte/reactivity";
 import { BaseLayer, VideoLayer } from "../layers";
 import { createLayer } from "../layers/factory";
-import type { TimeOptions } from "../layers/types";
 import type { CompositionOptions, SerializedComposition } from "./types";
+import { getFileManager } from "$lib/media";
 
 // there should be a layer class for it since compositions could be layers also
 export class Composition {
@@ -14,7 +15,7 @@ export class Composition {
 	public playing: boolean;
 	public aspectRatio: number;
 	public currentTimestamp: number;
-	public layers: Array<BaseLayer> = $state([]); // I might replace this with a SvelteMap
+	public layers = new SvelteMap<string, BaseLayer>();
 	public audioCtx: AudioContext;
 
 	private _projectId: string;
@@ -45,19 +46,19 @@ export class Composition {
 		if (time < 0 || time > this.duration) return;
 
 		this.currentTimestamp = time;
-		this.update({ time, anchor: -1 }); // dummy anchor
+		this.update(time); // dummy anchor
 	}
 
 	insertLayer(layer: BaseLayer) {
 		layer.attach(this);
-		this.layers.push(layer);
+		this.layers.set(layer.id, layer);
 	}
 
 	removeLayer(layerId: string) {
-		const layer = this.layers.find((l) => l.id === layerId);
+		const layer = this.layers.get(layerId);
 		if (!layer) throw new Error(`Layer with id ${layerId} not found`);
 		void layer.detach(); // this is intentional detaching the layer should happen in the background
-		this.layers = this.layers.filter((layer) => layer.id !== layerId);
+		this.layers.delete(layerId);
 	}
 
 	async start() {
@@ -67,7 +68,7 @@ export class Composition {
 		const anchor = this.audioCtx.currentTime - this.currentTimestamp;
 		this.currentTimestamp = this.audioCtx.currentTime - anchor;
 
-		for (const layer of this.layers) {
+		for (const layer of this.layers.values()) {
 			await layer.start({
 				anchor,
 				time: this.currentTimestamp
@@ -124,7 +125,7 @@ export class Composition {
 
 		this.playing = false;
 		await Promise.all(
-			this.layers.map((layer) =>
+			this.layers.values().map((layer) =>
 				layer.stop({
 					anchor: this.currentTimestamp, // dummy
 					time: this.currentTimestamp
@@ -133,7 +134,7 @@ export class Composition {
 		);
 	}
 
-	async update({ time }: TimeOptions) {
+	async update(time: number) {
 		assert(this._canvas);
 		assert(this._canvasCtx);
 
@@ -149,7 +150,7 @@ export class Composition {
 		const anchor = this.audioCtx.currentTime - time;
 
 		await Promise.all(
-			this.layers.map(async (layer) => {
+			Array.from(this.layers.values()).map(async (layer) => {
 				const opts = { anchor, time };
 				await layer.stop(opts);
 				await layer.start(opts);
@@ -158,7 +159,7 @@ export class Composition {
 
 		// draw once after all layers are updated
 		this._canvasCtx.clearRect(0, 0, this._canvas.width, this._canvas.height);
-		for (const layer of this.layers) {
+		for (const layer of this.layers.values()) {
 			if (layer instanceof VideoLayer && layer.canvas) {
 				this.draw(layer); // ensure draw uses latest frame
 			}
@@ -210,20 +211,22 @@ export class Composition {
 		this.rescale();
 	}
 
-	toJSON<SerializedComposition>() {
+	toJSON(): SerializedComposition {
 		return {
 			id: this.id,
 			fps: this.fps,
 			name: this.name,
 			duration: this.duration,
+			projectId: this._projectId,
 			aspectRatio: this.aspectRatio,
-			layers: this.layers.map((layer) => layer.toJSON())
-		} as SerializedComposition;
+			layers: Array.from(this.layers.values()).map((layer) => layer.toJSON())
+		};
 	}
 
 	static async fromJSON(json: SerializedComposition) {
 		const { layers, ...options } = json;
 
+		console.log("layers", layers);
 		const comp = new Composition(options);
 		const recreatedLayers = await Promise.all(
 			layers.map((layerOptions) => createLayer(layerOptions))
@@ -236,7 +239,16 @@ export class Composition {
 		return comp;
 	}
 
-	get projectFilesDir() {
-		return `${PROJECTS_DIR}/${this._projectId}/files`;
+	async save() {
+		const fileManager = await getFileManager();
+		await fileManager.writeJSON({
+			id: this.id,
+			json: this.toJSON(),
+			dir: this.projectCompositionsDir
+		});
+	}
+
+	get projectCompositionsDir() {
+		return `${PROJECTS_DIR}/${this._projectId}/compositions`;
 	}
 }

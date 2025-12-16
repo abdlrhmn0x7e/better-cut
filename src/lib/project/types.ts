@@ -1,5 +1,3 @@
-import type { SerializedComposition } from "$lib/editor/composition";
-
 export interface ProjectData {
 	id: string;
 	name: string;
@@ -24,5 +22,5 @@ export interface SerializedProject extends Record<string, unknown> {
 	updatedAt: string;
 	lastSavedAt: string;
 	fileIds: string[];
-	compositions: SerializedComposition[];
+	compositionIds: string[];
 }

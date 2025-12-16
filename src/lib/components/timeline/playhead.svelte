@@ -1,17 +1,17 @@
 <script lang="ts">
-	import { getEditorState } from "$lib/editor/editor-state.svelte";
+	import { getEditorState } from "$lib/editor";
 	import { TICK_PADDING } from "./constants";
 	import { getTimelineState } from "./timeline-state.svelte";
 
-	const ctx = getEditorState();
-	const timelineState = getTimelineState();
+	const editor = getEditorState();
+	const timeline = getTimelineState();
 </script>
 
 <div
 	class="focus:select-none absolute bottom-0 top-4 w-fit z-50"
-	style:left="{(ctx.comp?.currentTimestamp ?? 0) * timelineState.pps +
+	style:left="{(editor.activeComposition?.currentTimestamp ?? 0) * timeline.pps +
 		TICK_PADDING -
-		timelineState.scrollLeft}px"
+		timeline.scrollLeft}px"
 	draggable="false"
 >
 	<div class="w-px h-full bg-primary absolute top-1 left-1/2 -translate-x-1/2"></div>

@@ -1,29 +1,26 @@
-import { Composition } from "$lib/editor/composition";
 import { getContext, setContext } from "svelte";
 import { TARGET_TICK_WIDTH, TICK_INTERVALS, TICK_PADDING } from "./constants";
-
-interface TimelineStateOptions {
-	comp: Composition;
-}
+import { EditorState, getEditorState } from "$lib/editor";
 
 class TimelineState {
 	public selectedLayerId = $state(-1);
 	public zoomFactor = $state(1);
 	public viewportWidth = $state(0);
+	private _editor: EditorState;
 
-	private _comp: Composition;
 	private _scrollLeft = $state(0);
 
-	constructor({ comp }: TimelineStateOptions) {
-		this._comp = comp;
+	constructor(editor: EditorState) {
+		this._editor = editor;
 	}
 
 	get layers() {
-		return this._comp.layers;
+		if (!this._editor.activeComposition) return [];
+		return Array.from(this._editor.activeComposition.layers.values()); // this should be sorted later on
 	}
 
 	get pps() {
-		return (this.viewportWidth / (this._comp.duration ?? 1)) * this.zoomFactor;
+		return (this.viewportWidth / (this._editor.activeComposition?.duration ?? 1)) * this.zoomFactor;
 	}
 
 	get tickInterval() {
@@ -52,7 +49,7 @@ class TimelineState {
 	}
 
 	private get _maxScrollLeft() {
-		const timelineWidth = this._comp.duration * this.pps;
+		const timelineWidth = (this._editor.activeComposition?.duration ?? 0) * this.pps;
 		return Math.max(0, timelineWidth - this.viewportWidth + TICK_PADDING);
 	}
 
@@ -82,7 +79,8 @@ export function getTimelineState(key = DEFAULT_KEY) {
 	return getContext<TimelineState>(key);
 }
 
-export function setTimelineState(options: TimelineStateOptions, key = DEFAULT_KEY) {
-	const timelineState = new TimelineState(options);
+export function setTimelineState(key = DEFAULT_KEY) {
+	const editor = getEditorState();
+	const timelineState = new TimelineState(editor);
 	return setContext(key, timelineState);
 }

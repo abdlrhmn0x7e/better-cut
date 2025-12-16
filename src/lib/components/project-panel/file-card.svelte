@@ -1,14 +1,9 @@
 <script lang="ts">
-	import { getFileThumbnail } from "$lib/media/thumbnail";
 	import { ImageIcon, VideoIcon, Volume2Icon } from "@lucide/svelte";
 	import Badge from "../ui/badge/badge.svelte";
+	import type { FileMeta } from "$lib/media";
 
-	interface FileCardProps {
-		id: string;
-		file: File;
-	}
-
-	const { id, file }: FileCardProps = $props();
+	const { id, name, thumbnail, mimeType }: FileMeta = $props();
 
 	function handleDragStart(
 		e: DragEvent & {
@@ -22,31 +17,26 @@
 	}
 </script>
 
-<div class="relative" draggable="true" ondragstart={handleDragStart} role="application">
-	{#await getFileThumbnail(file)}
-		<p>Loading...</p>
-	{:then thumbnail}
-		<div class="size-24 mx-auto overflow-hidden rounded-lg bg-background">
-			<img
-				src={thumbnail}
-				alt="file-thumbnail"
-				class="size-full object-cover pointer-events-none"
-			/>
-		</div>
-	{:catch}
-		<p>Error Loading</p>
-	{/await}
+<div
+	class="relative cursor-grab active:crusor-grabbing"
+	draggable="true"
+	ondragstart={handleDragStart}
+	role="application"
+>
+	<div class="size-24 mx-auto overflow-hidden rounded-lg bg-background">
+		<img src={thumbnail} alt="file-thumbnail" class="size-full object-cover pointer-events-none" />
+	</div>
 
 	<Badge class="absolute bottom-1 left-1/2 -translate-x-1/2 max-w-22" variant="outline">
-		<p class="text-[0.5rem] truncate">{file.name}</p>
+		<p class="text-[0.5rem] truncate">{name}</p>
 	</Badge>
 
 	<Badge class="absolute top-1 right-1 size-6 p-0.5">
-		{#if file.type.startsWith("video")}
+		{#if mimeType.startsWith("video")}
 			<VideoIcon />
-		{:else if file.type.startsWith("image")}
+		{:else if mimeType.startsWith("image")}
 			<ImageIcon />
-		{:else if file.type.startsWith("audio")}
+		{:else if mimeType.startsWith("audio")}
 			<Volume2Icon />
 		{/if}
 	</Badge>

@@ -2,25 +2,35 @@
 	import Button from "../ui/button/button.svelte";
 	import ImportFiles from "./import-files.svelte";
 	import * as DropdownMenu from "$lib/components/ui/dropdown-menu/index.js";
+	import Logo from "../logo.svelte";
+	import { getEditorState } from "$lib/editor";
+
+	const editor = getEditorState();
 </script>
 
-<div class="w-full sm:flex flex-wrap hidden px-3 p-1 border-b">
+<div class="w-full sm:flex flex-wrap hidden px-3 p-1 border-b h-10 shrink-0">
 	<DropdownMenu.Root>
 		<div class="flex gap-3 items-center">
-			<p class="text-sm font-medium">Better <span class="text-blue-300">Cut</span></p>
+			<Logo class="text-sm" />
 
-			<DropdownMenu.Trigger>
-				{#snippet child({ props })}
-					<Button
-						{...props}
-						variant="ghost"
-						size="xs"
-						class="cursor-pointer data-[state=open]:bg-accent"
-					>
-						File
-					</Button>
-				{/snippet}
-			</DropdownMenu.Trigger>
+			<div class="flex gap-1 items-center">
+				<DropdownMenu.Trigger>
+					{#snippet child({ props })}
+						<Button
+							{...props}
+							variant="ghost"
+							size="xs"
+							class="cursor-pointer data-[state=open]:bg-accent"
+						>
+							File
+						</Button>
+					{/snippet}
+				</DropdownMenu.Trigger>
+
+				<Button onclick={() => editor.save()} size="xs" variant="ghost" disabled={editor.isSaving}
+					>Save</Button
+				>
+			</div>
 		</div>
 
 		<DropdownMenu.Content align="start" class="min-w-48">

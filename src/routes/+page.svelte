@@ -58,11 +58,23 @@
 						</Empty.Header>
 					</Empty.Root>
 				{:then list}
-					<div class="grid grid-cols-2 gap-3">
-						{#each list as project (project.id)}
-							<ProjectCard {project} />
-						{/each}
-					</div>
+					{#if list.length > 0}
+						<div class="grid grid-cols-2 gap-3">
+							{#each list as project (project.id)}
+								<ProjectCard {project} />
+							{/each}
+						</div>
+					{:else}
+						<Empty.Root class="w-full">
+							<Empty.Header>
+								<Empty.Media variant="icon">
+									<FilmIcon />
+								</Empty.Media>
+								<Empty.Title>No Projects Found</Empty.Title>
+								<Empty.Description>Start by creating new projects</Empty.Description>
+							</Empty.Header>
+						</Empty.Root>
+					{/if}
 				{:catch error}
 					<p>Something went wrong: {error.message}</p>
 				{/await}

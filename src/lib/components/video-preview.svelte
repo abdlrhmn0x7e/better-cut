@@ -3,28 +3,23 @@
 	import type { HTMLAttributes } from "svelte/elements";
 	import Button from "./ui/button/button.svelte";
 	import { PauseIcon, PlayIcon } from "@lucide/svelte";
-	import type { Action } from "svelte/action";
 	import { getEditorState } from "$lib/editor/editor-state.svelte";
 
-	let {
-		action,
-		class: classNames,
-		...props
-	}: { action: Action<HTMLCanvasElement> } & HTMLAttributes<HTMLDivElement> = $props();
+	let { class: classNames, ...props }: HTMLAttributes<HTMLDivElement> = $props();
 
-	const ctx = getEditorState();
+	const editor = getEditorState();
 
 	function handlePlay() {
-		void ctx.comp.start();
+		void editor.activeComposition?.start();
 	}
 
 	function handlePause() {
-		void ctx.comp.stop();
+		void editor.activeComposition?.stop();
 	}
 
 	function handleToggle() {
-		if (ctx.comp.playing) void ctx.comp.stop();
-		else void ctx.comp.start();
+		if (editor.activeComposition?.playing) void editor.activeComposition.stop();
+		else void editor.activeComposition?.start();
 	}
 
 	function handleKeydown(
@@ -46,17 +41,29 @@
 
 <div class={cn("bg-card size-full flex flex-col gap-2 p-2 border-x", classNames)} {...props}>
 	<div class="flex-1 size-full overflow-hidden py-2">
-		<div class="size-full flex-1 flex items-center justify-center">
-			<canvas use:action class="border bg-background"></canvas>
-		</div>
+		{#if editor.activeComposition}
+			<div class="size-full flex-1 flex items-center justify-center">
+				<canvas bind:this={editor.activeComposition.canvas} class="border bg-background"></canvas>
+			</div>
+		{/if}
 	</div>
 
 	<div class="shrink-0 flex justify-end flex-wrap gap-2">
-		<Button onclick={handlePlay} disabled={ctx.comp.playing} variant="ghost" size="icon-sm">
+		<Button
+			onclick={handlePlay}
+			disabled={editor.activeComposition?.playing}
+			variant="ghost"
+			size="icon-sm"
+		>
 			<PlayIcon />
 		</Button>
 
-		<Button onclick={handlePause} disabled={!ctx.comp.playing} variant="ghost" size="icon-sm">
+		<Button
+			onclick={handlePause}
+			disabled={!editor.activeComposition?.playing}
+			variant="ghost"
+			size="icon-sm"
+		>
 			<PauseIcon />
 		</Button>
 	</div>
