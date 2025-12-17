@@ -13,7 +13,9 @@ import { getFileManager } from "$lib/media";
 export class VideoLayer extends BaseLayer {
 	public fileId: string;
 	public targetFps: number = 0; // onAttach handles this value
+
 	public isReady = false;
+	public isPlaying = false;
 
 	private _videoProbe: VideoProbe | null = null;
 	private _videoFrameIterator: AsyncGenerator<WrappedCanvas, void, unknown> | null = null;
@@ -175,6 +177,8 @@ export class VideoLayer extends BaseLayer {
 	}
 
 	async start({ time }: TimeOptions) {
+		this.isPlaying = true;
+
 		// update the video frame iterator on play depending on the starting position
 		const layerStartPos = time - this.startOffset;
 		if (layerStartPos < 0) {
@@ -197,6 +201,8 @@ export class VideoLayer extends BaseLayer {
 	async stop({ time }: TimeOptions) {
 		assert(this.canvas);
 		assert(this._canvasCtx);
+
+		this.isPlaying = false;
 
 		this._resetAudioSchedule();
 
