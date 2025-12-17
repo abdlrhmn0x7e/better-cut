@@ -35,9 +35,6 @@ export class VideoLayer extends BaseLayer {
 	private constructor({ fileId, ...base }: VideoLayerOptions) {
 		super({ ...base, type: "video" });
 		this.fileId = fileId;
-
-		this.canvas = new OffscreenCanvas(1920, 1080);
-		this._canvasCtx = this.canvas.getContext("2d");
 	}
 
 	static async init(options: VideoLayerOptions) {
@@ -57,12 +54,9 @@ export class VideoLayer extends BaseLayer {
 
 		this._videoProbe = await probeVideo(src);
 		this._videoSink = new CanvasSink(this._videoProbe.video);
-		this._videoFrameIterator = await this._createVideoFrameIterator();
 
-		const firstFrame = (await this._videoFrameIterator.next()).value ?? null;
-		this._currentFrame = (await this._videoFrameIterator.next()).value ?? null;
-
-		if (!firstFrame) throw new Error("UNEXPECTED: This video has no frames");
+		this.canvas = new OffscreenCanvas(this._videoProbe.dims.width, this._videoProbe.dims.height);
+		this._canvasCtx = this.canvas.getContext("2d");
 
 		this.endTime = this._videoProbe.duration;
 		this.isReady = true;
@@ -148,7 +142,7 @@ export class VideoLayer extends BaseLayer {
 		}
 
 		// Upsampling, duplicate frames/don't move the next frame until it's time has elapsed.
-		const frameEndTime = this._currentFrame.timestamp + this._videoProbe.fps / 1000;
+		const frameEndTime = this._currentFrame.timestamp + 1 / this._videoProbe.fps;
 		if (layerTime < frameEndTime) return;
 
 		this._lastAlignedTimestamp = alignedTime;
@@ -182,7 +176,11 @@ export class VideoLayer extends BaseLayer {
 
 	async start({ time }: TimeOptions) {
 		// update the video frame iterator on play depending on the starting position
-		const layerStartPos = Math.max(0, time - this.startOffset);
+		const layerStartPos = time - this.startOffset;
+		if (layerStartPos < 0) {
+			return;
+		}
+
 		this._videoFrameIterator = await this._createVideoFrameIterator(layerStartPos);
 
 		if (this._audioSink) {
@@ -203,6 +201,7 @@ export class VideoLayer extends BaseLayer {
 		this._resetAudioSchedule();
 
 		await this._videoFrameIterator?.return();
+		await this._audioIterator?.return();
 
 		this._currentFrame = null;
 		this._lastScheduledAudioTimestamp = -1;
@@ -231,7 +230,6 @@ export class VideoLayer extends BaseLayer {
 		while (remaining > 0) {
 			const sample = (await this._audioIterator.next()).value;
 			if (!sample) {
-				console.log("NO MORE SAMPLES TO SCHEDULE");
 				break;
 			}
 
@@ -260,6 +258,7 @@ export class VideoLayer extends BaseLayer {
 	_resetAudioSchedule() {
 		for (const node of this._audioNodesQueue) {
 			node.stop();
+			node.disconnect();
 		}
 
 		this._audioNodesQueue.clear();

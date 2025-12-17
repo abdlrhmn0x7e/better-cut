@@ -46,7 +46,7 @@ export class Composition {
 		if (time < 0 || time > this.duration) return;
 
 		this.currentTimestamp = time;
-		this.update(time); // dummy anchor
+		this.seek(time); // dummy anchor
 	}
 
 	insertLayer(layer: BaseLayer) {
@@ -64,6 +64,10 @@ export class Composition {
 	async start() {
 		if (this.playing) return;
 		this.playing = true;
+
+		if (this.audioCtx.state === "suspended") {
+			await this.audioCtx.resume();
+		}
 
 		const anchor = this.audioCtx.currentTime - this.currentTimestamp;
 		this.currentTimestamp = this.audioCtx.currentTime - anchor;
@@ -134,7 +138,7 @@ export class Composition {
 		);
 	}
 
-	async update(time: number) {
+	async seek(time: number) {
 		assert(this._canvas);
 		assert(this._canvasCtx);
 
@@ -226,7 +230,6 @@ export class Composition {
 	static async fromJSON(json: SerializedComposition) {
 		const { layers, ...options } = json;
 
-		console.log("layers", layers);
 		const comp = new Composition(options);
 		const recreatedLayers = await Promise.all(
 			layers.map((layerOptions) => createLayer(layerOptions))
