@@ -29,7 +29,7 @@
 						editor.activeComposition = comp;
 					}
 
-					void editor.addLayer({ type: "video", startOffset: 0, fileId });
+					void editor.addLayer({ type: "video", startOffset: 0, fileId, zIndex: 0 });
 				});
 			}
 		}

@@ -1,7 +1,7 @@
 import { PROJECTS_DIR } from "$lib/project/constants";
 import { assert } from "$lib/utils/assert";
 import { SvelteMap } from "svelte/reactivity";
-import { BaseLayer, VideoLayer } from "../layers";
+import { BaseLayer, type Drawable, type Playable } from "../layers";
 import { createLayer } from "../layers/factory";
 import type { CompositionOptions, SerializedComposition } from "./types";
 import { getFileManager } from "$lib/media";
@@ -15,7 +15,8 @@ export class Composition {
 	public playing: boolean;
 	public aspectRatio: number;
 	public currentTimestamp: number;
-	public layers = new SvelteMap<string, BaseLayer>();
+	public layers = new SvelteMap<string, BaseLayer>(); // id to layer map
+	public layersByZIndex: BaseLayer[] = [];
 	public audioCtx: AudioContext;
 
 	private _projectId: string;
@@ -42,16 +43,10 @@ export class Composition {
 		this.playing = $state(false);
 	}
 
-	setCurrentTimestamp(time: number) {
-		if (time < 0 || time > this.duration) return;
-
-		this.currentTimestamp = time;
-		this.seek(time); // dummy anchor
-	}
-
 	insertLayer(layer: BaseLayer) {
 		layer.attach(this);
 		this.layers.set(layer.id, layer);
+		this.layersByZIndex = Array.from(this.layers.values()).sort((a, b) => a.zIndex - b.zIndex);
 	}
 
 	removeLayer(layerId: string) {
@@ -59,6 +54,35 @@ export class Composition {
 		if (!layer) throw new Error(`Layer with id ${layerId} not found`);
 		void layer.detach(); // this is intentional detaching the layer should happen in the background
 		this.layers.delete(layerId);
+
+		// idk if thats necessary yet
+		this.layersByZIndex = Array.from(this.layers.values()).sort((a, b) => a.zIndex - b.zIndex);
+	}
+
+	async seek(time: number) {
+		assert(this._canvas);
+		assert(this._canvasCtx);
+
+		if (this._isSeeking) return;
+		if (time < 0 || time > this.duration) return;
+
+		this._isSeeking = true;
+
+		// stop ticking while seeking
+		const wasPlaying = this.playing;
+		await this.stop();
+
+		this.currentTimestamp = time;
+
+		this._clearPreview();
+		await this._drawLayers(this.currentTimestamp);
+
+		// optionally resume playback
+		if (wasPlaying) {
+			this.start();
+		}
+
+		this._isSeeking = false;
 	}
 
 	async start() {
@@ -73,20 +97,19 @@ export class Composition {
 		this.currentTimestamp = this.audioCtx.currentTime - anchor;
 
 		for (const layer of this.layers.values()) {
-			await layer.start({
-				anchor,
-				time: this.currentTimestamp
-			});
+			if (this._isPlayable(layer)) {
+				void layer.onPlay(this.currentTimestamp);
+			}
 		}
 
 		requestAnimationFrame(() => {
-			this._tick.bind(this)({
+			void this._tick.bind(this)({
 				anchor: this.audioCtx.currentTime - this.currentTimestamp
 			});
 		});
 	}
 
-	private _tick({ anchor }: { anchor: number }) {
+	private async _tick({ anchor }: { anchor: number }) {
 		assert(this._canvas);
 		assert(this._canvasCtx);
 
@@ -95,20 +118,7 @@ export class Composition {
 
 		this.currentTimestamp = this.audioCtx.currentTime - anchor;
 
-		this._canvasCtx.clearRect(0, 0, this._canvas.width, this._canvas.height);
-
-		// order of which layer is updated first doesn't matter for now
-		// running those in parallel is fine until now...
-		this.layers.forEach(async (layer) => {
-			await layer.update({
-				anchor,
-				time: this.currentTimestamp
-			});
-
-			if (layer instanceof VideoLayer) {
-				this.draw(layer);
-			}
-		});
+		await this._drawLayers(this.currentTimestamp);
 
 		requestAnimationFrame(() => {
 			this._tick.bind(this)({
@@ -117,67 +127,66 @@ export class Composition {
 		});
 	}
 
-	draw(layer: VideoLayer) {
-		assert(layer.canvas);
+	private async _drawLayers(timestamp: number) {
+		const promises = this.layersByZIndex.map(async (layer) => {
+			if (!layer.isActiveAt(timestamp)) return null;
+			if (!this._isDrawable(layer)) return null;
+
+			try {
+				return await layer.getFrame(timestamp);
+			} catch (e) {
+				console.error(e);
+				return null;
+			}
+		});
+
+		const frames = await Promise.all(promises);
+
+		this._clearPreview();
+
+		for (const frame of frames) {
+			if (frame) {
+				this._drawFrame(frame);
+			}
+		}
+	}
+
+	private _drawFrame(frame: HTMLCanvasElement | OffscreenCanvas) {
 		assert(this._canvasCtx);
 
-		this._canvasCtx.drawImage(layer.canvas, 0, 0, layer.canvas.width, layer.canvas.height);
+		this._canvasCtx.drawImage(frame, 0, 0, frame.width / 2, frame.height / 2); // divide by 2 temporarely until it's customizable
+	}
+
+	private _clearPreview() {
+		assert(this._canvas);
+		assert(this._canvasCtx);
+
+		this._canvasCtx.clearRect(0, 0, this._canvas.width, this._canvas.height);
+	}
+
+	private _isDrawable(layer: BaseLayer): layer is Drawable {
+		return "getFrame" in layer;
+	}
+	private _isPlayable(layer: BaseLayer): layer is Playable {
+		return "onPlay" in layer && "onPause" in layer;
 	}
 
 	async stop() {
 		if (!this.playing) return;
 
 		this.playing = false;
-		await Promise.all(
-			this.layers.values().map((layer) =>
-				layer.stop({
-					anchor: this.currentTimestamp, // dummy
-					time: this.currentTimestamp
-				})
-			)
-		);
-	}
-
-	async seek(time: number) {
-		assert(this._canvas);
-		assert(this._canvasCtx);
-
-		if (this._isSeeking) return;
-		if (time < 0 || time > this.duration) return;
-
-		this._isSeeking = true;
-
-		// stop ticking while seeking
-		const wasPlaying = this.playing;
-		this.playing = false;
-
-		const anchor = this.audioCtx.currentTime - time;
-
-		await Promise.all(
-			Array.from(this.layers.values()).map(async (layer) => {
-				const opts = { anchor, time };
-				await layer.stop(opts);
-				await layer.start(opts);
-			})
-		);
-
-		// draw once after all layers are updated
-		this._canvasCtx.clearRect(0, 0, this._canvas.width, this._canvas.height);
 		for (const layer of this.layers.values()) {
-			if (layer instanceof VideoLayer && layer.canvas) {
-				this.draw(layer); // ensure draw uses latest frame
+			if (this._isPlayable(layer)) {
+				void layer.onPause();
 			}
 		}
+	}
+
+	setCurrentTimestamp(time: number) {
+		if (time < 0 || time > this.duration) return;
 
 		this.currentTimestamp = time;
-
-		// optionally resume playback
-		if (wasPlaying) {
-			this.playing = true;
-			requestAnimationFrame(() => this._tick({ anchor }));
-		}
-
-		this._isSeeking = false;
+		this.seek(time); // dummy anchor
 	}
 
 	rescale() {
@@ -226,7 +235,6 @@ export class Composition {
 			layers: Array.from(this.layers.values()).map((layer) => layer.toJSON())
 		};
 	}
-
 	static async fromJSON(json: SerializedComposition) {
 		const { layers, ...options } = json;
 

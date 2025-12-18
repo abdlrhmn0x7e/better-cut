@@ -2,15 +2,15 @@ import type { FileMeta } from "$lib/media";
 import { Project } from "$lib/project";
 import { assert } from "$lib/utils/assert";
 import { createContext } from "svelte";
-import { CommandHistory } from "./commands/history.svelte";
-import { Composition, type CompositionOptions } from "./composition";
 import { toast } from "svelte-sonner";
 import { SvelteMap } from "svelte/reactivity";
 import { AddLayerCommand } from "./commands/add-layer";
-import { createLayer } from "./layers/factory";
-import type { BaseLayer, LayerOptions } from "./layers";
-import { RemoveLayerCommand } from "./commands/remove-layer";
+import { CommandHistory } from "./commands/history.svelte";
 import { MoveLayerCommand } from "./commands/move-layer";
+import { RemoveLayerCommand } from "./commands/remove-layer";
+import { Composition, type CompositionOptions } from "./composition";
+import type { BaseLayer, LayerOptions } from "./layers";
+import { createLayer } from "./layers/factory";
 
 export class EditorState {
 	public isSaving = $state(false);
@@ -33,7 +33,6 @@ export class EditorState {
 			this.files = await this.project.getFiles();
 
 			const serializedComps = await this.project.getCompositions();
-			console.log("serialized comps", serializedComps);
 			await Promise.all(
 				serializedComps.map(async (comp) =>
 					this.compositions.set(comp.id, await Composition.fromJSON(comp))

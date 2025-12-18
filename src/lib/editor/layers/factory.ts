@@ -6,6 +6,6 @@ export function createLayer(options: LayerOptions) {
 
 	switch (type) {
 		case "video":
-			return VideoLayer.init(rest);
+			return VideoLayer.create(rest);
 	}
 }

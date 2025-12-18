@@ -8,4 +8,6 @@ export async function getFileManager() {
 }
 
 export * from "./types";
+export * from "./media-source";
+export * from "./audio-scheduler";
 export { FileManager, META_SUFFIX };

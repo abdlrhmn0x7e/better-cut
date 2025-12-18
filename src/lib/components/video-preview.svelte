@@ -43,7 +43,7 @@
 	<div class="flex-1 size-full overflow-hidden py-2">
 		{#if editor.activeComposition}
 			<div class="size-full flex-1 flex items-center justify-center">
-				<canvas bind:this={editor.activeComposition.canvas} class="border bg-background"></canvas>
+				<canvas bind:this={editor.activeComposition.canvas} class="border bg-black"></canvas>
 			</div>
 		{/if}
 	</div>

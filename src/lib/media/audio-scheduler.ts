@@ -1,5 +1,10 @@
 import type { AudioBufferSink, WrappedAudioBuffer } from "mediabunny";
 
+export interface AudioSchedulerOptions {
+	audioSink: AudioBufferSink;
+	audioCtx: AudioContext;
+}
+
 export class AudioScheduler {
 	public isDisposed = false;
 
@@ -9,7 +14,7 @@ export class AudioScheduler {
 	private _audioSchedulerQueue: Set<AudioBufferSourceNode> = new Set();
 	private _audioIterator: AsyncGenerator<WrappedAudioBuffer, void, unknown> | null = null;
 
-	constructor(audioSink: AudioBufferSink, audioCtx: AudioContext) {
+	constructor({ audioSink, audioCtx }: AudioSchedulerOptions) {
 		this._audioSink = audioSink;
 		this._audioCtx = audioCtx;
 
@@ -44,7 +49,7 @@ export class AudioScheduler {
 
 			// If we're more than a second ahead of the current playback time,
 			// let's slow down the loop until time has passed.
-			const currentTimestamp = anchor - this._audioCtx.currentTime + time;
+			const currentTimestamp = this._audioCtx.currentTime - anchor + time;
 			if (sample.timestamp - currentTimestamp > 1) {
 				await new Promise<void>((resolve) => {
 					const id = setInterval(() => {

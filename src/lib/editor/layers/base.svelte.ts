@@ -1,23 +1,27 @@
 import type { Composition } from "../composition";
 import { PROJECTS_DIR } from "$lib/project/constants";
-import type { BaseLayerOptions, LayerType, SerializedLayer, TimeOptions } from "./types";
+import type { BaseLayerOptions, LayerType, SerializedLayer } from "./types";
 import type { MaybePromise } from "../types";
 
 export abstract class BaseLayer {
 	public id: string;
 	public type: LayerType;
+	public projectId: string;
+
 	public startOffset = $state(0);
 	public startTime = $state(0);
 	public endTime = $state<number | null>(null);
-	public projectId: string;
+	public zIndex: number;
 
 	protected _comp: Composition | null = null;
 
-	constructor({ type, startOffset, projectId }: BaseLayerOptions) {
+	constructor({ type, startOffset, projectId, zIndex }: BaseLayerOptions) {
 		this.id = crypto.randomUUID();
 		this.type = type;
-		this.startOffset = startOffset;
 		this.projectId = projectId;
+
+		this.zIndex = zIndex;
+		this.startOffset = startOffset;
 	}
 
 	attach(comp: Composition) {
@@ -37,9 +41,14 @@ export abstract class BaseLayer {
 	protected abstract onAttach(): MaybePromise<void>;
 	protected abstract onDetach(): MaybePromise<void>;
 
-	abstract update(options: TimeOptions): Promise<void>;
-	abstract start(options: TimeOptions): Promise<void>;
-	abstract stop(options: TimeOptions): Promise<void>;
+	protected getLayerTime(timestamp: number) {
+		return timestamp - this.startOffset;
+	}
+
+	public isActiveAt(timestamp: number) {
+		const layerTime = this.getLayerTime(timestamp);
+		return layerTime >= this.startTime && (this.endTime === null || layerTime < this.endTime);
+	}
 
 	abstract toJSON(): SerializedLayer;
 	// eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -50,7 +59,6 @@ export abstract class BaseLayer {
 	get projectFilesDir() {
 		return `${PROJECTS_DIR}/${this.projectId}/files`;
 	}
-
 	get audioCtx() {
 		return this._comp ? this._comp.audioCtx : null;
 	}
