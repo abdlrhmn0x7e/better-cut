@@ -9,20 +9,25 @@ import { getFileManager } from "$lib/media";
 // there should be a layer class for it since compositions could be layers also
 export class Composition {
 	public id: string;
+	private _projectId: string;
+
 	public fps: number;
 	public name: string;
 	public duration: number;
 	public playing: boolean;
 	public aspectRatio: number;
 	public currentTimestamp: number;
+
 	public layers = new SvelteMap<string, BaseLayer>(); // id to layer map
 	public layersByZIndex: BaseLayer[] = [];
+
 	public audioCtx: AudioContext;
 
-	private _projectId: string;
-	private _isSeeking = false;
 	private _canvas: HTMLCanvasElement | null;
 	private _canvasCtx: CanvasRenderingContext2D | null;
+
+	private _rAFHandle: number | null = null;
+	private _asyncId = 0;
 
 	constructor({ aspectRatio = 16 / 9, id, duration, projectId, fps, name }: CompositionOptions) {
 		this.id = id ?? (crypto.randomUUID() as string);
@@ -63,10 +68,7 @@ export class Composition {
 		assert(this._canvas);
 		assert(this._canvasCtx);
 
-		if (this._isSeeking) return;
 		if (time < 0 || time > this.duration) return;
-
-		this._isSeeking = true;
 
 		// stop ticking while seeking
 		const wasPlaying = this.playing;
@@ -74,15 +76,12 @@ export class Composition {
 
 		this.currentTimestamp = time;
 
-		this._clearPreview();
 		await this._drawLayers(this.currentTimestamp);
 
 		// optionally resume playback
 		if (wasPlaying) {
 			this.start();
 		}
-
-		this._isSeeking = false;
 	}
 
 	async start() {
@@ -93,28 +92,36 @@ export class Composition {
 			await this.audioCtx.resume();
 		}
 
-		const anchor = this.audioCtx.currentTime - this.currentTimestamp;
-		this.currentTimestamp = this.audioCtx.currentTime - anchor;
-
 		for (const layer of this.layers.values()) {
 			if (this._isPlayable(layer)) {
 				void layer.onPlay(this.currentTimestamp);
 			}
 		}
 
-		requestAnimationFrame(() => {
+		this._scheduleTick();
+	}
+
+	private _scheduleTick() {
+		this._asyncId++;
+
+		this._rAFHandle = requestAnimationFrame(() => {
 			void this._tick.bind(this)({
+				asyncId: this._asyncId,
 				anchor: this.audioCtx.currentTime - this.currentTimestamp
 			});
 		});
 	}
 
-	private async _tick({ anchor }: { anchor: number }) {
+	private async _tick({ anchor, asyncId }: { anchor: number; asyncId: number }) {
+		// if we're not playing return
+		if (!this.playing) return;
+
+		if (asyncId < this._asyncId || asyncId > this._asyncId) return;
+
 		assert(this._canvas);
 		assert(this._canvasCtx);
 
-		// if we're not playing return
-		if (!this.playing) return;
+		if (this._rAFHandle) cancelAnimationFrame(this._rAFHandle);
 
 		this.currentTimestamp = this.audioCtx.currentTime - anchor;
 
@@ -122,12 +129,15 @@ export class Composition {
 
 		requestAnimationFrame(() => {
 			this._tick.bind(this)({
+				asyncId,
 				anchor
 			});
 		});
 	}
 
 	private async _drawLayers(timestamp: number) {
+		assert(this._canvas);
+
 		const promises = this.layersByZIndex.map(async (layer) => {
 			if (!layer.isActiveAt(timestamp)) return null;
 			if (!this._isDrawable(layer)) return null;
@@ -142,26 +152,23 @@ export class Composition {
 
 		const frames = await Promise.all(promises);
 
-		this._clearPreview();
+		const composite = new OffscreenCanvas(this._canvas.width, this._canvas.height);
+		const ctx = composite.getContext("2d");
+		if (!ctx) return;
 
+		ctx.fillStyle = "#000";
+		ctx.fillRect(0, 0, this._canvas.width, this._canvas.height);
 		for (const frame of frames) {
-			if (frame) {
-				this._drawFrame(frame);
-			}
+			if (frame) ctx.drawImage(frame, 0, 0, frame.width / 2, frame.height / 2); // divide by 2 temporarely until it's customizable
 		}
+
+		this._drawFrame(composite);
 	}
 
 	private _drawFrame(frame: HTMLCanvasElement | OffscreenCanvas) {
 		assert(this._canvasCtx);
 
-		this._canvasCtx.drawImage(frame, 0, 0, frame.width / 2, frame.height / 2); // divide by 2 temporarely until it's customizable
-	}
-
-	private _clearPreview() {
-		assert(this._canvas);
-		assert(this._canvasCtx);
-
-		this._canvasCtx.clearRect(0, 0, this._canvas.width, this._canvas.height);
+		this._canvasCtx.drawImage(frame, 0, 0, frame.width, frame.height); // divide by 2 temporarely until it's customizable
 	}
 
 	private _isDrawable(layer: BaseLayer): layer is Drawable {
