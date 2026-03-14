@@ -11,6 +11,7 @@
 
 	const editor = getEditorState();
 	const timeline = setTimelineState();
+	let zIndex = 0;
 
 	function handleDrop(
 		e: DragEvent & {
@@ -29,7 +30,8 @@
 						editor.activeComposition = comp;
 					}
 
-					void editor.addLayer({ type: "video", startOffset: 0, fileId, zIndex: 0 });
+					void editor.addLayer({ type: "video", startOffset: 0, fileId, zIndex });
+					zIndex++;
 				});
 			}
 		}

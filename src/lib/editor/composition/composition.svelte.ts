@@ -150,7 +150,7 @@ export class Composition {
 			}
 		});
 
-		const frames = await Promise.all(promises);
+		const frames = (await Promise.all(promises)).filter((frame) => !!frame);
 
 		const composite = new OffscreenCanvas(this._canvas.width, this._canvas.height);
 		const ctx = composite.getContext("2d");

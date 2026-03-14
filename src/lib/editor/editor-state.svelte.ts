@@ -99,12 +99,13 @@ export class EditorState {
 		this.history.execute(new AddLayerCommand({ comp: this.activeComposition, layer }));
 	}
 
-	async deleteLayer() {
+	async deleteLayer(layerId: string) {
 		assert(this.activeComposition);
-		assert(this.activeLayer);
-		this.history.execute(
-			new RemoveLayerCommand({ comp: this.activeComposition, layer: this.activeLayer })
-		);
+		// assert(this.activeLayer);
+
+		const layer = this.activeComposition.layers.get(layerId);
+		if (!layer) return;
+		this.history.execute(new RemoveLayerCommand({ comp: this.activeComposition, layer }));
 	}
 
 	moveLayer(delta: number) {
